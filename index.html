@@ -1,6 +1,111 @@
 <!doctype html>
-<html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#f6f8fc" />
+    <title>Aptivo Mock Screen Plan</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
   <body>
-    <a href="./Screen/Document/documents.html">Document</a>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="#" aria-label="Aptivo Mock Screen Plan home">
+          <span class="brand-mark">A</span>
+          <span class="brand-copy">
+            <strong>Aptivo</strong>
+            <small>Mock Screen Plan</small>
+          </span>
+        </a>
+        <div class="topbar-right">
+          <span class="status-dot"></span>
+          <span class="project-label">Project workspace</span>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="intro">
+          <div>
+            <p class="eyebrow">PROJECT NAVIGATION</p>
+            <h1>Mock Screen Plan</h1>
+            <p class="intro-text">
+              Browse the application structure and open each screen reference.
+            </p>
+          </div>
+          <div class="intro-count" aria-live="polite">
+            <span id="item-count">0</span>
+            <small>items in plan</small>
+          </div>
+        </section>
+
+        <section class="content-grid">
+          <aside class="tree-panel">
+            <div class="panel-heading">
+              <div>
+                <h2>Screen structure</h2>
+                <p>Folders and screen links</p>
+              </div>
+              <button id="expand-all" class="subtle-button" type="button">
+                Expand all
+              </button>
+            </div>
+
+            <label class="search-box">
+              <span aria-hidden="true">⌕</span>
+              <input
+                id="tree-search"
+                type="search"
+                placeholder="Search folders or screens..."
+                autocomplete="off"
+              />
+              <kbd>⌘ K</kbd>
+            </label>
+
+            <nav
+              id="tree-root"
+              class="tree-root"
+              aria-label="Mock screen folder tree"
+            >
+              <div class="loading">Loading project structure…</div>
+            </nav>
+            <div class="tree-footer">
+              <span class="legend-folder">▰ Folder</span>
+              <span class="legend-link">↗ Screen link</span>
+            </div>
+          </aside>
+
+          <section class="preview-panel" aria-live="polite">
+            <div class="preview-topline">
+              <span class="preview-icon">⌘</span>
+              <span>WORKSPACE OVERVIEW</span>
+            </div>
+            <div id="preview-content" class="preview-content">
+              <div class="welcome-icon">A</div>
+              <h2>Select a screen or folder</h2>
+              <p>
+                Choose an item from the structure to view its details. Screen
+                links open the configured destination.
+              </p>
+              <div class="tip-card">
+                <span class="tip-icon">✦</span>
+                <div>
+                  <strong>How this plan works</strong>
+                  <p>
+                    The complete navigation structure is maintained in
+                    <code>data.json</code>. Add folders inside folders to create
+                    as many nesting levels as you need.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </section>
+        </section>
+        <footer class="page-footer">
+          Aptivo Mock Screen Plan <span>•</span> Structure managed through
+          <code>data.json</code>
+        </footer>
+      </main>
+    </div>
+    <script src="script.js"></script>
   </body>
 </html>

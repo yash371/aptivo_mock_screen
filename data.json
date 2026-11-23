@@ -1,0 +1,31 @@
+{
+  "title": "Aptivo Mock Screen Plan",
+  "description": "A sample folder and screen structure for the Aptivo application.",
+  "children": [
+    {
+      "title": "Aptivo User Application",
+      "type": "folder",
+      "description": "Main application modules and their mock screen references.",
+      "children": [
+        {
+          "title": "After Login",
+          "type": "folder",
+          "children": [
+            {
+              "title": "More",
+              "type": "folder",
+              "children": [
+                {
+                  "title": "Documents",
+                  "type": "link",
+                  "href": "./Screen/Document/documents.html",
+                  "description": "More section In User App"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

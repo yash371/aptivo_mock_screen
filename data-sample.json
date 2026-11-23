@@ -1,0 +1,109 @@
+{
+  "title": "Aptivo Mock Screen Plan",
+  "description": "A sample folder and screen structure for the Aptivo application. Replace href values with your actual mock screen URLs.",
+  "children": [
+    {
+      "title": "Aptivo Application",
+      "type": "folder",
+      "description": "Main application modules and their mock screen references.",
+      "children": [
+        {
+          "title": "Dashboard",
+          "type": "folder",
+          "children": [
+            {
+              "title": "Dashboard Home",
+              "type": "link",
+              "href": "https://example.com/mock-screens/dashboard-home",
+              "description": "Main dashboard screen mockup."
+            },
+            {
+              "title": "Notifications",
+              "type": "link",
+              "href": "https://example.com/mock-screens/notifications"
+            }
+          ]
+        },
+        {
+          "title": "Documents",
+          "type": "folder",
+          "children": [
+            {
+              "title": "Documents Listing",
+              "type": "link",
+              "href": "https://example.com/mock-screens/documents-listing"
+            },
+            {
+              "title": "Folder Listing",
+              "type": "link",
+              "href": "https://example.com/mock-screens/folder-listing"
+            },
+            {
+              "title": "Document Details & Preview",
+              "type": "link",
+              "href": "https://example.com/mock-screens/document-details"
+            },
+            {
+              "title": "Add Document Flow",
+              "type": "folder",
+              "children": [
+                {
+                  "title": "Add Document",
+                  "type": "link",
+                  "href": "https://example.com/mock-screens/add-document"
+                },
+                {
+                  "title": "Select Folder",
+                  "type": "link",
+                  "href": "https://example.com/mock-screens/select-folder"
+                }
+              ]
+            },
+            {
+              "title": "Search & Filter",
+              "type": "link",
+              "href": "https://example.com/mock-screens/document-search"
+            }
+          ]
+        },
+        {
+          "title": "Visitors",
+          "type": "folder",
+          "children": [
+            {
+              "title": "Visitor Listing",
+              "type": "link",
+              "href": "https://example.com/mock-screens/visitor-list"
+            },
+            {
+              "title": "Add Visitor",
+              "type": "link",
+              "href": "https://example.com/mock-screens/add-visitor"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Shared Components",
+      "type": "folder",
+      "children": [
+        {
+          "title": "Buttons & Actions",
+          "type": "link",
+          "href": "https://example.com/mock-screens/buttons"
+        },
+        {
+          "title": "Bottom Sheets",
+          "type": "link",
+          "href": "https://example.com/mock-screens/bottom-sheets"
+        }
+      ]
+    },
+    {
+      "title": "Project Notes",
+      "type": "link",
+      "href": "https://example.com/mock-screens/project-notes"
+    }
+  ]
+}
