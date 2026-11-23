@@ -47,7 +47,7 @@
         <!-- Filter tabs -->
         <div class="tabs" id="tabs">
           <button class="tab active" data-filter="all">All Documents</button>
-          <button class="tab" data-filter="my">My Documents</button>
+          <!-- <button class="tab" data-filter="my">My Documents</button> -->
           <button class="tab" data-filter="shared">Shared with Me</button>
         </div>
 
@@ -72,7 +72,13 @@
       </main>
 
       <!-- FAB -->
-      <button class="fab" id="fabAdd" type="button" aria-label="Add document">
+      <button
+        class="fab"
+        style="display: none"
+        id="fabAdd"
+        type="button"
+        aria-label="Add document"
+      >
         +
       </button>
 
@@ -270,7 +276,6 @@
                     <span>${escapeHtml(d.size)}</span>
                   </div>
                 </div>
-                <button class="more" type="button" aria-label="More options" data-more>⋮</button>
               </div>`;
           })
           .join("");
