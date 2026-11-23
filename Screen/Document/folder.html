@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aptivo — Folder</title>
+    <link rel="stylesheet" href="common.css" />
+    <style>
+      .folder-banner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 16px;
+        border: 1px solid #d9e9ff;
+        background: linear-gradient(120deg, #eaf3ff, #f5f9ff);
+        border-radius: var(--r-lg);
+        margin-bottom: 16px;
+      }
+      .folder-banner-icon {
+        width: 56px;
+        height: 56px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        background: #fff;
+        border-radius: var(--r-md);
+        font-size: 28px;
+      }
+      .folder-banner-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .folder-banner-info h2 {
+        font-size: var(--fs-subtitle1);
+        font-weight: var(--fw-bold);
+        margin: 0 0 5px;
+      }
+      .folder-banner-info p {
+        font-size: 12px;
+        color: var(--color-text-2);
+        margin: 0;
+      }
+      .folder-banner-info small {
+        display: block;
+        font-size: 11px;
+        color: var(--color-text-2);
+        margin-top: 5px;
+      }
+      .list-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin: 18px 0 12px;
+      }
+      .list-toolbar strong {
+        font-size: var(--fs-body1);
+        font-weight: var(--fw-semibold);
+      }
+      .sort-btn {
+        padding: 7px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-sm);
+        background: #fff;
+        color: var(--color-text-2);
+        font-size: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="status"><span>9:41 ● ◉</span><span>●●● ⌁ 93%</span></div>
+        <div class="header-row">
+          <button class="icon-btn" id="backBtn" aria-label="Back">‹</button>
+          <div class="header-title">
+            <h1 id="hdrTitle">Folder</h1>
+            <p>Documents inside this folder</p>
+          </div>
+          <button class="icon-btn" id="folderMore" aria-label="Folder options">
+            ⋮
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="breadcrumb">
+          <button id="bcDocuments">Documents</button>
+          <span>›</span>
+          <span class="current" id="bcCurrent">Folder</span>
+        </div>
+
+        <div class="folder-banner">
+          <div class="folder-banner-icon">📁</div>
+          <div class="folder-banner-info">
+            <h2 id="fbName">Folder</h2>
+            <p id="fbMeta">0 Documents</p>
+            <small id="fbUpdated">Last updated: —</small>
+          </div>
+        </div>
+
+        <div class="search">
+          <span class="search-icon">⌕</span>
+          <input
+            type="search"
+            id="searchInput"
+            placeholder="Search in this folder..."
+          />
+        </div>
+
+        <div class="section-head"><h2>File Type</h2></div>
+        <div class="chips" id="typeChips">
+          <button class="chip active" data-type="all">All Files</button>
+          <button class="chip" data-type="pdf">PDF</button>
+          <button class="chip" data-type="docx">Word</button>
+          <button class="chip" data-type="xlsx">Excel</button>
+          <button class="chip" data-type="image">Images</button>
+        </div>
+
+        <div class="list-toolbar">
+          <strong id="countLabel">All Documents</strong>
+          <button class="sort-btn" id="sortBtn" type="button">Latest ↓</button>
+        </div>
+
+        <div class="doc-list" id="docList"></div>
+        <div class="empty" id="emptyState">
+          <span class="empty-icon">⌕</span>
+          No documents found.
+        </div>
+      </main>
+
+      <button class="fab" id="fabAdd" aria-label="Add document">+</button>
+
+      <div class="sheet-overlay" id="sheetSort">
+        <section class="sheet" role="dialog" aria-modal="true">
+          <div class="sheet-handle"></div>
+          <div class="sheet-head">
+            <div>
+              <h3 class="sheet-title">Sort by</h3>
+              <p class="sheet-sub">Choose how documents are listed</p>
+            </div>
+            <button type="button" class="sheet-close" aria-label="Close">
+              ×
+            </button>
+          </div>
+          <div class="sheet-body">
+            <button class="sheet-action" type="button" data-sort="newest">
+              <span class="sheet-action-icon">↓</span
+              ><span class="sheet-action-label">Newest first</span
+              ><span class="sheet-action-chevron">›</span>
+            </button>
+            <button class="sheet-action" type="button" data-sort="oldest">
+              <span class="sheet-action-icon">↑</span
+              ><span class="sheet-action-label">Oldest first</span
+              ><span class="sheet-action-chevron">›</span>
+            </button>
+            <button class="sheet-action" type="button" data-sort="az">
+              <span class="sheet-action-icon">A</span
+              ><span class="sheet-action-label">Name: A → Z</span
+              ><span class="sheet-action-chevron">›</span>
+            </button>
+            <button class="sheet-action" type="button" data-sort="za">
+              <span class="sheet-action-icon">Z</span
+              ><span class="sheet-action-label">Name: Z → A</span
+              ><span class="sheet-action-chevron">›</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            class="btn btn-ghost btn-block"
+            data-sheet-close
+          >
+            Cancel
+          </button>
+        </section>
+      </div>
+    </div>
+
+    <script src="common.js"></script>
+    <script>
+      (function () {
+        const folderId = qs("folder") || "society";
+        let folder = Store.getFolder(folderId);
+
+        if (!folder) {
+          toast("Folder not found");
+          setTimeout(() => window.location.replace("documents.html"), 800);
+          return;
+        }
+
+        let searchQuery = "";
+        let activeType = "all";
+        let sortMode = "newest";
+        const SORT_LABEL = {
+          newest: "Latest ↓",
+          oldest: "Oldest ↑",
+          az: "A → Z",
+          za: "Z → A",
+        };
+
+        function paintHeader() {
+          document.getElementById("hdrTitle").textContent = folder.name;
+          document.getElementById("bcCurrent").textContent = folder.name;
+          document.getElementById("fbName").textContent = folder.name;
+          const docs = Store.docsIn(folder.id);
+          document.getElementById("fbMeta").textContent =
+            `${String(docs.length).padStart(2, "0")} Documents · ${folder.shared ? "Shared Folder" : "Private Folder"}`;
+          const latest = docs
+            .map((d) => d.date)
+            .sort()
+            .reverse()[0];
+          document.getElementById("fbUpdated").textContent = latest
+            ? `Last updated: ${formatDate(latest)}`
+            : "No documents yet";
+        }
+
+        function renderDocs() {
+          const list = document.getElementById("docList");
+          const empty = document.getElementById("emptyState");
+          let items = Store.docsIn(folder.id);
+
+          if (searchQuery)
+            items = items.filter((d) =>
+              d.name.toLowerCase().includes(searchQuery),
+            );
+          if (activeType !== "all")
+            items = items.filter((d) => d.type === activeType);
+
+          if (sortMode === "newest")
+            items.sort((a, b) => b.date.localeCompare(a.date));
+          else if (sortMode === "oldest")
+            items.sort((a, b) => a.date.localeCompare(b.date));
+          else if (sortMode === "az")
+            items.sort((a, b) => a.name.localeCompare(b.name));
+          else if (sortMode === "za")
+            items.sort((a, b) => b.name.localeCompare(a.name));
+
+          document.getElementById("countLabel").textContent =
+            activeType === "all"
+              ? "All Documents"
+              : `${activeType.toUpperCase()} Documents`;
+
+          if (!items.length) {
+            list.innerHTML = "";
+            empty.classList.add("show");
+            return;
+          }
+          empty.classList.remove("show");
+
+          list.innerHTML = items
+            .map((d) => {
+              const meta = fileMeta(d.type);
+              return `
+            <div class="doc-card" data-id="${escapeHtml(d.id)}">
+              <div class="file-icon ${meta.cls}">${meta.label}</div>
+              <div class="doc-info">
+                <strong>${escapeHtml(d.name)}</strong>
+                <p>Uploaded by ${escapeHtml(d.uploadedBy || "You")}</p>
+                <div class="doc-meta">
+                  <span>${formatDate(d.date)}</span><span>•</span><span>${escapeHtml(d.size)}</span>
+                </div>
+              </div>
+              <button class="more" type="button" data-more aria-label="More">⋮</button>
+            </div>`;
+            })
+            .join("");
+
+          list.querySelectorAll(".doc-card").forEach((card) => {
+            card.addEventListener("click", (e) => {
+              if (e.target.closest("[data-more]")) {
+                e.stopPropagation();
+                openDocActions(card.dataset.id);
+              } else {
+                window.location.href = `preview.html?doc=${encodeURIComponent(card.dataset.id)}`;
+              }
+            });
+          });
+        }
+
+        function openDocActions(id) {
+          const doc = Store.getDoc(id);
+          if (!doc) return;
+          openActionsSheet({
+            title: doc.name,
+            subtitle: "Choose an action",
+            items: [
+              {
+                label: "Preview",
+                icon: "👁",
+                onClick: () =>
+                  (window.location.href = `preview.html?doc=${encodeURIComponent(id)}`),
+              },
+              {
+                label: "Download",
+                icon: "↓",
+                onClick: () => toast("Downloading document..."),
+              },
+              {
+                label: "Share",
+                icon: "↗",
+                onClick: () => toast("Share link copied"),
+              },
+              {
+                label: "Rename",
+                icon: "✎",
+                onClick: () => {
+                  const next = window.prompt("Rename document", doc.name);
+                  if (next && next.trim() && next.trim() !== doc.name) {
+                    Store.updateDoc(id, { name: next.trim() });
+                    renderDocs();
+                    paintHeader();
+                    toast("Document renamed");
+                  }
+                },
+              },
+              {
+                label: "Move",
+                icon: "📁",
+                onClick: () => {
+                  openActionsSheet({
+                    title: "Move to folder",
+                    subtitle: doc.name,
+                    items: Store.folders()
+                      .filter((f) => f.id !== doc.folderId)
+                      .map((f) => ({
+                        label: f.name,
+                        icon: "📁",
+                        onClick: () => {
+                          Store.updateDoc(id, { folderId: f.id });
+                          renderDocs();
+                          paintHeader();
+                          toast(`Moved to ${f.name}`);
+                        },
+                      })),
+                  });
+                },
+              },
+              {
+                label: "Delete",
+                icon: "🗑",
+                danger: true,
+                onClick: () =>
+                  Modal.confirm({
+                    title: "Delete document?",
+                    message: `"${doc.name}" will be permanently removed.`,
+                    confirmLabel: "Delete",
+                    danger: true,
+                    onConfirm: () => {
+                      Store.removeDoc(id);
+                      renderDocs();
+                      paintHeader();
+                      toast("Document deleted");
+                    },
+                  }),
+              },
+            ],
+          });
+        }
+
+        function openFolderActions() {
+          openActionsSheet({
+            title: folder.name,
+            subtitle: "Folder actions",
+            items: [
+              {
+                label: "Share",
+                icon: "↗",
+                onClick: () => toast("Folder share link copied"),
+              },
+              {
+                label: "Rename",
+                icon: "✎",
+                onClick: () => {
+                  const next = window.prompt("Rename folder", folder.name);
+                  if (next && next.trim() && next.trim() !== folder.name) {
+                    Store.updateFolder(folder.id, { name: next.trim() });
+                    folder = Store.getFolder(folder.id);
+                    paintHeader();
+                    toast("Folder renamed");
+                  }
+                },
+              },
+              {
+                label: "Delete Folder",
+                icon: "🗑",
+                danger: true,
+                onClick: () =>
+                  Modal.confirm({
+                    title: "Delete folder?",
+                    message: `"${folder.name}" and all its documents will be permanently removed.`,
+                    confirmLabel: "Delete",
+                    danger: true,
+                    onConfirm: () => {
+                      Store.removeFolder(folder.id);
+                      toast("Folder deleted");
+                      setTimeout(
+                        () => window.location.replace("documents.html"),
+                        400,
+                      );
+                    },
+                  }),
+              },
+            ],
+          });
+        }
+
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", () => history.back());
+        document
+          .getElementById("bcDocuments")
+          .addEventListener(
+            "click",
+            () => (window.location.href = "documents.html"),
+          );
+        document
+          .getElementById("folderMore")
+          .addEventListener("click", openFolderActions);
+        document.getElementById("fabAdd").addEventListener("click", () => {
+          window.location.href = `add-document.html?folder=${encodeURIComponent(folder.id)}`;
+        });
+        document
+          .getElementById("searchInput")
+          .addEventListener("input", (e) => {
+            searchQuery = e.target.value.toLowerCase().trim();
+            renderDocs();
+          });
+        document.querySelectorAll("#typeChips .chip").forEach((chip) => {
+          chip.addEventListener("click", () => {
+            document
+              .querySelectorAll("#typeChips .chip")
+              .forEach((c) => c.classList.remove("active"));
+            chip.classList.add("active");
+            activeType = chip.dataset.type;
+            renderDocs();
+          });
+        });
+        document
+          .getElementById("sortBtn")
+          .addEventListener("click", () => Sheet.open("sheetSort"));
+        document.querySelectorAll("#sheetSort [data-sort]").forEach((opt) => {
+          opt.addEventListener("click", () => {
+            sortMode = opt.dataset.sort;
+            document.getElementById("sortBtn").textContent =
+              SORT_LABEL[sortMode];
+            Sheet.close("sheetSort");
+            renderDocs();
+          });
+        });
+
+        paintHeader();
+        renderDocs();
+      })();
+    </script>
+  </body>
+</html>

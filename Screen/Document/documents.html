@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aptivo — Documents</title>
+    <link rel="stylesheet" href="common.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- Header -->
+      <header class="header">
+        <div class="status">
+          <span>9:41 ● ◉</span>
+          <span>●●● ⌁ 93%</span>
+        </div>
+        <div class="header-row">
+          <button
+            class="icon-btn"
+            aria-label="Go back"
+            onclick="history.back()"
+          >
+            ‹
+          </button>
+          <div class="header-title">
+            <h1>Documents</h1>
+            <p>Manage your society documents</p>
+          </div>
+          <button
+            class="icon-btn"
+            aria-label="Notifications"
+            onclick="toast('Notifications')"
+          >
+            ♧
+          </button>
+        </div>
+      </header>
+
+      <main class="content">
+        <!-- Search (opens search page) -->
+        <button class="search" type="button" id="openSearch">
+          <span class="search-icon">⌕</span>
+          <span class="search-placeholder">Search documents, folders...</span>
+          <span class="search-end">☷</span>
+        </button>
+
+        <!-- Filter tabs -->
+        <div class="tabs" id="tabs">
+          <button class="tab active" data-filter="all">All Documents</button>
+          <button class="tab" data-filter="my">My Documents</button>
+          <button class="tab" data-filter="shared">Shared with Me</button>
+        </div>
+
+        <!-- Folders -->
+        <div class="section-head">
+          <h2>Folders</h2>
+        </div>
+        <div class="folder-grid" id="folderGrid"></div>
+
+        <!-- Recent documents -->
+        <div class="section-head">
+          <h2>Recent Documents</h2>
+          <button class="section-action" id="sortBtn" type="button">
+            Latest ↓
+          </button>
+        </div>
+        <div class="doc-list" id="docList"></div>
+        <div class="empty" id="emptyState">
+          <span class="empty-icon">⌕</span>
+          No documents found. Try another tab.
+        </div>
+      </main>
+
+      <!-- FAB -->
+      <button class="fab" id="fabAdd" type="button" aria-label="Add document">
+        +
+      </button>
+
+      <!-- Add sheet -->
+      <div class="sheet-overlay" id="sheetAdd">
+        <section class="sheet" role="dialog" aria-modal="true">
+          <div class="sheet-handle"></div>
+          <div class="sheet-head">
+            <div>
+              <h3 class="sheet-title">Add to Documents</h3>
+              <p class="sheet-sub">Choose what you want to add</p>
+            </div>
+            <button type="button" class="sheet-close" aria-label="Close">
+              ×
+            </button>
+          </div>
+          <div class="sheet-body">
+            <button class="sheet-action" type="button" id="actionCreateFolder">
+              <span class="sheet-action-icon">📁</span>
+              <span
+                class="sheet-action-label"
+                style="display: flex; flex-direction: column; gap: 3px"
+              >
+                <strong style="font-size: 14px">Create New Folder</strong>
+                <small
+                  style="
+                    font-size: 12px;
+                    color: var(--color-text-2);
+                    font-weight: 400;
+                  "
+                  >Organize your documents into a new folder</small
+                >
+              </span>
+              <span class="sheet-action-chevron">›</span>
+            </button>
+            <button class="sheet-action" type="button" id="actionUploadDoc">
+              <span class="sheet-action-icon">↑</span>
+              <span
+                class="sheet-action-label"
+                style="display: flex; flex-direction: column; gap: 3px"
+              >
+                <strong style="font-size: 14px">Upload New Document</strong>
+                <small
+                  style="
+                    font-size: 12px;
+                    color: var(--color-text-2);
+                    font-weight: 400;
+                  "
+                  >Select and upload a document to your folder</small
+                >
+              </span>
+              <span class="sheet-action-chevron">›</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            class="btn btn-ghost btn-block"
+            data-sheet-close
+          >
+            Cancel
+          </button>
+        </section>
+      </div>
+
+      <!-- Sort sheet -->
+      <div class="sheet-overlay" id="sheetSort">
+        <section class="sheet" role="dialog" aria-modal="true">
+          <div class="sheet-handle"></div>
+          <div class="sheet-head">
+            <div>
+              <h3 class="sheet-title">Sort by</h3>
+              <p class="sheet-sub">Choose how documents are listed</p>
+            </div>
+            <button type="button" class="sheet-close" aria-label="Close">
+              ×
+            </button>
+          </div>
+          <div class="sheet-body">
+            <button class="sheet-action" type="button" data-sort="newest">
+              <span class="sheet-action-icon">↓</span>
+              <span class="sheet-action-label">Newest first</span>
+              <span class="sheet-action-chevron">›</span>
+            </button>
+            <button class="sheet-action" type="button" data-sort="oldest">
+              <span class="sheet-action-icon">↑</span>
+              <span class="sheet-action-label">Oldest first</span>
+              <span class="sheet-action-chevron">›</span>
+            </button>
+            <button class="sheet-action" type="button" data-sort="az">
+              <span class="sheet-action-icon">A</span>
+              <span class="sheet-action-label">Name: A → Z</span>
+              <span class="sheet-action-chevron">›</span>
+            </button>
+            <button class="sheet-action" type="button" data-sort="za">
+              <span class="sheet-action-icon">Z</span>
+              <span class="sheet-action-label">Name: Z → A</span>
+              <span class="sheet-action-chevron">›</span>
+            </button>
+          </div>
+          <button
+            type="button"
+            class="btn btn-ghost btn-block"
+            data-sheet-close
+          >
+            Cancel
+          </button>
+        </section>
+      </div>
+    </div>
+
+    <script src="common.js"></script>
+    <script>
+      /* ---------- Page state ---------- */
+      let activeFilter = "all";
+      let sortMode = "newest";
+
+      const SORT_LABEL = {
+        newest: "Latest ↓",
+        oldest: "Oldest ↑",
+        az: "A → Z",
+        za: "Z → A",
+      };
+
+      /* ---------- Render folders ---------- */
+      function renderFolders() {
+        const grid = document.getElementById("folderGrid");
+        const folders = Store.folders();
+        grid.innerHTML = folders
+          .map((f) => {
+            const count = Store.docsIn(f.id).length;
+            return `
+              <button class="folder-card" type="button" data-folder="${escapeHtml(f.id)}">
+                <div class="folder-icon folder-icon--${escapeHtml(f.color || "blue")}">📁</div>
+                <div class="folder-info">
+                  <strong>${escapeHtml(f.name)}</strong>
+                  <small>${String(count).padStart(2, "0")} Documents</small>
+                </div>
+                <span class="folder-chevron">›</span>
+              </button>`;
+          })
+          .join("");
+
+        grid.querySelectorAll(".folder-card").forEach((card) => {
+          card.addEventListener("click", () => {
+            window.location.href = `folder.html?folder=${encodeURIComponent(card.dataset.folder)}`;
+          });
+        });
+      }
+
+      /* ---------- Render documents ---------- */
+      function renderDocs() {
+        const list = document.getElementById("docList");
+        const empty = document.getElementById("emptyState");
+        const folderName = Object.fromEntries(
+          Store.folders().map((f) => [f.id, f.name]),
+        );
+
+        let items = Store.docs();
+        if (activeFilter === "my")
+          items = items.filter((d) => d.visibility === "private");
+        if (activeFilter === "shared")
+          items = items.filter((d) => d.visibility === "shared");
+
+        if (sortMode === "newest")
+          items.sort((a, b) => b.date.localeCompare(a.date));
+        else if (sortMode === "oldest")
+          items.sort((a, b) => a.date.localeCompare(b.date));
+        else if (sortMode === "az")
+          items.sort((a, b) => a.name.localeCompare(b.name));
+        else if (sortMode === "za")
+          items.sort((a, b) => b.name.localeCompare(a.name));
+
+        /* show only first 8 in "recent" list */
+        items = items.slice(0, 8);
+
+        if (!items.length) {
+          list.innerHTML = "";
+          empty.classList.add("show");
+          return;
+        }
+        empty.classList.remove("show");
+
+        list.innerHTML = items
+          .map((d) => {
+            const meta = fileMeta(d.type);
+            return `
+              <div class="doc-card" data-id="${escapeHtml(d.id)}">
+                <div class="file-icon ${meta.cls}">${meta.label}</div>
+                <div class="doc-info">
+                  <strong>${escapeHtml(d.name)}</strong>
+                  <p>${escapeHtml(folderName[d.folderId] || "Documents")} · ${escapeHtml(d.uploadedBy || "You")}</p>
+                  <div class="doc-meta">
+                    <span>${formatDate(d.date)}</span>
+                    <span>•</span>
+                    <span>${escapeHtml(d.size)}</span>
+                  </div>
+                </div>
+                <button class="more" type="button" aria-label="More options" data-more>⋮</button>
+              </div>`;
+          })
+          .join("");
+
+        list.querySelectorAll(".doc-card").forEach((card) => {
+          card.addEventListener("click", (e) => {
+            if (e.target.closest("[data-more]")) {
+              e.stopPropagation();
+              openDocActions(card.dataset.id);
+            } else {
+              window.location.href = `preview.html?doc=${encodeURIComponent(card.dataset.id)}`;
+            }
+          });
+        });
+      }
+
+      /* ---------- Document actions ---------- */
+      function openDocActions(id) {
+        const doc = Store.getDoc(id);
+        if (!doc) return;
+        openActionsSheet({
+          title: doc.name,
+          subtitle: "Choose an action",
+          items: [
+            {
+              label: "Preview",
+              icon: "👁",
+              onClick: () =>
+                (window.location.href = `preview.html?doc=${encodeURIComponent(id)}`),
+            },
+            {
+              label: "Download",
+              icon: "↓",
+              onClick: () => toast("Downloading document..."),
+            },
+            {
+              label: "Share",
+              icon: "↗",
+              onClick: () => toast("Share options coming soon"),
+            },
+            {
+              label: "Rename",
+              icon: "✎",
+              onClick: () => toast("Rename flow — coming soon"),
+            },
+            {
+              label: "Move",
+              icon: "📁",
+              onClick: () => toast("Move flow — coming soon"),
+            },
+            {
+              label: "Delete",
+              icon: "🗑",
+              danger: true,
+              onClick: () =>
+                Modal.confirm({
+                  title: "Delete document?",
+                  message: `"${doc.name}" will be permanently removed.`,
+                  confirmLabel: "Delete",
+                  danger: true,
+                  onConfirm: () => {
+                    Store.removeDoc(id);
+                    renderDocs();
+                    renderFolders();
+                    toast("Document deleted");
+                  },
+                }),
+            },
+          ],
+        });
+      }
+
+      /* ---------- Wiring ---------- */
+      function wireTabs() {
+        document.querySelectorAll("#tabs .tab").forEach((tab) => {
+          tab.addEventListener("click", () => {
+            document
+              .querySelectorAll("#tabs .tab")
+              .forEach((t) => t.classList.remove("active"));
+            tab.classList.add("active");
+            activeFilter = tab.dataset.filter;
+            renderDocs();
+          });
+        });
+      }
+
+      function wireSort() {
+        const btn = document.getElementById("sortBtn");
+        btn.addEventListener("click", () => Sheet.open("sheetSort"));
+        document.querySelectorAll("#sheetSort [data-sort]").forEach((opt) => {
+          opt.addEventListener("click", () => {
+            sortMode = opt.dataset.sort;
+            btn.textContent = SORT_LABEL[sortMode] || "Latest ↓";
+            Sheet.close("sheetSort");
+            renderDocs();
+          });
+        });
+      }
+
+      function wireFAB() {
+        document
+          .getElementById("fabAdd")
+          .addEventListener("click", () => Sheet.open("sheetAdd"));
+        document
+          .getElementById("actionCreateFolder")
+          .addEventListener("click", () => {
+            Sheet.close("sheetAdd");
+            setTimeout(() => (window.location.href = "add-folder.html"), 80);
+          });
+        document
+          .getElementById("actionUploadDoc")
+          .addEventListener("click", () => {
+            Sheet.close("sheetAdd");
+            setTimeout(() => (window.location.href = "add-document.html"), 80);
+          });
+      }
+
+      function wireSearch() {
+        document.getElementById("openSearch").addEventListener("click", () => {
+          window.location.href = "search-filter.html";
+        });
+      }
+
+      /* ---------- Init ---------- */
+      document.addEventListener("DOMContentLoaded", () => {
+        renderFolders();
+        renderDocs();
+        wireTabs();
+        wireSort();
+        wireFAB();
+        wireSearch();
+      });
+    </script>
+  </body>
+</html>

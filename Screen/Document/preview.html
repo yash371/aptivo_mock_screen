@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aptivo — Document Preview</title>
+    <link rel="stylesheet" href="common.css" />
+    <style>
+      .doc-heading {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+      .doc-heading-title {
+        flex: 1;
+        min-width: 0;
+      }
+      .doc-heading-title h2 {
+        font-size: var(--fs-subtitle1);
+        font-weight: var(--fw-semibold);
+        margin: 0 0 4px;
+        line-height: 1.35;
+      }
+      .doc-heading-title p {
+        font-size: 11px;
+        color: var(--color-text-2);
+        margin: 0;
+      }
+      .preview-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-bottom: 0;
+        border-radius: var(--r-md) var(--r-md) 0 0;
+        background: var(--color-surface);
+      }
+      .preview-toolbar strong {
+        font-size: 12px;
+      }
+      .toolbar-actions {
+        display: flex;
+        gap: 6px;
+      }
+      .toolbar-actions button {
+        width: 30px;
+        height: 28px;
+        border: 1px solid var(--color-border);
+        background: #fff;
+        border-radius: var(--r-xs);
+        color: #555;
+        font-size: 14px;
+      }
+      .viewer {
+        background: #e8eaf0;
+        padding: 15px 12px;
+        min-height: 400px;
+        display: flex;
+        justify-content: center;
+        overflow: auto;
+        border: 1px solid var(--color-border);
+        border-top: 0;
+        border-bottom: 0;
+      }
+      .paper {
+        width: 100%;
+        max-width: 310px;
+        min-height: 380px;
+        background: #fff;
+        padding: 22px 18px;
+        box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+        transform-origin: top center;
+        transition: transform 0.2s;
+      }
+      .paper-header {
+        text-align: center;
+        border-bottom: 2px solid var(--color-primary);
+        padding-bottom: 12px;
+      }
+      .paper-logo {
+        width: 36px;
+        height: 36px;
+        margin: 0 auto 8px;
+        background: #eaf3ff;
+        color: var(--color-primary);
+        display: grid;
+        place-items: center;
+        border-radius: 9px;
+        font-weight: 800;
+        font-size: 17px;
+      }
+      .paper-header h3 {
+        font-size: 14px;
+        margin: 0 0 3px;
+      }
+      .paper-header p {
+        font-size: 8px;
+        color: #777;
+        margin: 0;
+      }
+      .paper-body {
+        padding-top: 16px;
+      }
+      .paper-body h4 {
+        font-size: 11px;
+        text-align: center;
+        margin: 0 0 14px;
+      }
+      .paper-body p {
+        font-size: 8px;
+        line-height: 1.8;
+        color: #555;
+        text-align: justify;
+        margin: 0 0 12px;
+      }
+      .paper-section {
+        font-size: 9px;
+        font-weight: 700;
+        margin: 14px 0 7px;
+      }
+      .paper-line {
+        height: 5px;
+        background: #edf0f4;
+        border-radius: 3px;
+        margin-bottom: 7px;
+      }
+      .paper-line.short {
+        width: 65%;
+      }
+      .paper-line.medium {
+        width: 85%;
+      }
+      .paper-footer {
+        border-top: 1px solid #ddd;
+        padding-top: 8px;
+        margin-top: 22px;
+        display: flex;
+        justify-content: space-between;
+        font-size: 7px;
+        color: #999;
+      }
+      .page-controls {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        padding: 12px;
+        border: 1px solid var(--color-border);
+        border-radius: 0 0 var(--r-md) var(--r-md);
+        background: #fff;
+      }
+      .page-controls button {
+        width: 28px;
+        height: 28px;
+        border: 1px solid var(--color-border);
+        background: #fff;
+        color: var(--color-primary);
+        border-radius: var(--r-xs);
+      }
+      .page-controls span {
+        font-size: 11px;
+        color: var(--color-text-2);
+      }
+      .action-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .action-tile {
+        padding: 14px 6px;
+        background: #f6f9ff;
+        border: 1px solid #e0ebff;
+        border-radius: var(--r-md);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 7px;
+        color: var(--color-primary);
+        font-size: 12px;
+        font-weight: var(--fw-semibold);
+      }
+      .action-tile span {
+        font-size: 20px;
+      }
+      .details-card {
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+        padding: 4px 14px;
+      }
+      .detail-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 11px 0;
+        border-bottom: 1px solid var(--color-border);
+        font-size: 12px;
+      }
+      .detail-row:last-child {
+        border-bottom: 0;
+      }
+      .detail-row span {
+        color: var(--color-text-2);
+      }
+      .detail-row strong {
+        text-align: right;
+        font-weight: var(--fw-semibold);
+      }
+      .folder-link-card {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 13px 14px;
+        background: #f4f8ff;
+        border: 1px solid #e0ebff;
+        border-radius: var(--r-md);
+        cursor: pointer;
+        margin-bottom: 14px;
+      }
+      .folder-link-icon {
+        width: 38px;
+        height: 38px;
+        background: #fff;
+        border-radius: 9px;
+        display: grid;
+        place-items: center;
+        font-size: 19px;
+      }
+      .folder-link-info {
+        flex: 1;
+      }
+      .folder-link-info strong {
+        display: block;
+        font-size: 12px;
+      }
+      .folder-link-info small {
+        display: block;
+        font-size: 10px;
+        color: var(--color-text-2);
+        margin-top: 3px;
+      }
+      .access-card {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 13px 14px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+      }
+      .access-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 50%;
+        background: #eaf8ef;
+        color: var(--color-success);
+        display: grid;
+        place-items: center;
+        font-size: 17px;
+      }
+      .access-info {
+        flex: 1;
+      }
+      .access-info strong {
+        display: block;
+        font-size: 12px;
+      }
+      .access-info small {
+        display: block;
+        font-size: 10px;
+        color: var(--color-text-2);
+        margin-top: 3px;
+      }
+      .access-badge {
+        font-size: 10px;
+        color: var(--color-success);
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="status"><span>9:41 ● ◉</span><span>●●● ⌁ 93%</span></div>
+        <div class="header-row">
+          <button class="icon-btn" id="backBtn" aria-label="Back">‹</button>
+          <div class="header-title">
+            <h1>Document Details</h1>
+            <p>View document information</p>
+          </div>
+          <button class="icon-btn" id="moreBtn" aria-label="More">⋮</button>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="breadcrumb">
+          <button id="bcDocuments">Documents</button>
+          <span>›</span>
+          <button id="bcFolder">Folder</button>
+          <span>›</span>
+          <span class="current">Preview</span>
+        </div>
+
+        <div class="doc-heading">
+          <div class="file-icon pdf" id="docIcon">PDF</div>
+          <div class="doc-heading-title">
+            <h2 id="docName">Document</h2>
+            <p id="docSub">—</p>
+          </div>
+        </div>
+
+        <div class="preview-toolbar">
+          <strong>Preview</strong>
+          <div class="toolbar-actions">
+            <button type="button" id="zoomOut" aria-label="Zoom out">−</button>
+            <button type="button" id="zoomIn" aria-label="Zoom in">+</button>
+            <button type="button" id="zoomReset" aria-label="Reset zoom">
+              ⛶
+            </button>
+          </div>
+        </div>
+        <div class="viewer">
+          <div class="paper" id="paper">
+            <div class="paper-header">
+              <div class="paper-logo">A</div>
+              <h3>APTIVO</h3>
+              <p>Society Management</p>
+            </div>
+            <div class="paper-body">
+              <h4 id="paperTitle">DOCUMENT</h4>
+              <p>
+                This document contains general rules and information applicable
+                to all members of the society.
+              </p>
+              <div class="paper-section">1. GENERAL GUIDELINES</div>
+              <p>
+                All members should maintain cleanliness and respect the
+                community guidelines. Common areas must be used responsibly.
+              </p>
+              <div class="paper-line"></div>
+              <div class="paper-line medium"></div>
+              <div class="paper-line short"></div>
+              <div class="paper-section">2. SECURITY & VISITORS</div>
+              <p>
+                Visitors must follow the society entry process. Residents are
+                responsible for ensuring guests comply with security policies.
+              </p>
+              <div class="paper-line"></div>
+              <div class="paper-line medium"></div>
+              <div class="paper-line short"></div>
+              <div class="paper-footer">
+                <span>Aptivo Society Management</span>
+                <span id="paperPage">Page 1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="page-controls">
+          <button type="button" id="prevPage">‹</button>
+          <span>Page <strong id="pageNum">1</strong> of 5</span>
+          <button type="button" id="nextPage">›</button>
+        </div>
+
+        <div class="action-grid">
+          <button class="action-tile" type="button" id="btnDownload">
+            <span>↓</span>Download
+          </button>
+          <button class="action-tile" type="button" id="btnShare">
+            <span>↗</span>Share
+          </button>
+          <button class="action-tile" type="button" id="btnPrint">
+            <span>▤</span>Print
+          </button>
+        </div>
+
+        <div class="section-head"><h2>Document Information</h2></div>
+        <div class="details-card">
+          <div class="detail-row">
+            <span>File Name</span><strong id="dtFile">—</strong>
+          </div>
+          <div class="detail-row">
+            <span>File Type</span><strong id="dtType">—</strong>
+          </div>
+          <div class="detail-row">
+            <span>File Size</span><strong id="dtSize">—</strong>
+          </div>
+          <div class="detail-row">
+            <span>Uploaded On</span><strong id="dtDate">—</strong>
+          </div>
+          <div class="detail-row">
+            <span>Uploaded By</span><strong id="dtBy">—</strong>
+          </div>
+          <div class="detail-row">
+            <span>Visibility</span><strong id="dtVis">—</strong>
+          </div>
+        </div>
+
+        <div class="section-head"><h2>Folder Location</h2></div>
+        <div class="folder-link-card" id="folderLink">
+          <div class="folder-link-icon">📁</div>
+          <div class="folder-link-info">
+            <strong id="flName">—</strong>
+            <small id="flSub">—</small>
+          </div>
+          <span style="color: var(--color-primary); font-size: 18px">›</span>
+        </div>
+
+        <div class="section-head"><h2>Access</h2></div>
+        <div class="access-card">
+          <div class="access-icon">✓</div>
+          <div class="access-info">
+            <strong id="acTitle">—</strong>
+            <small id="acSub">—</small>
+          </div>
+          <span class="access-badge">Active</span>
+        </div>
+      </main>
+    </div>
+
+    <script src="common.js"></script>
+    <script>
+      (function () {
+        const docId = qs("doc");
+        const doc = docId ? Store.getDoc(docId) : null;
+
+        if (!doc) {
+          toast("Document not found");
+          setTimeout(() => window.location.replace("documents.html"), 800);
+          return;
+        }
+
+        const folder = Store.getFolder(doc.folderId);
+        const meta = fileMeta(doc.type);
+
+        document.getElementById("docIcon").className = "file-icon " + meta.cls;
+        document.getElementById("docIcon").textContent = meta.label;
+        document.getElementById("docName").textContent = doc.name;
+        document.getElementById("docSub").textContent =
+          `${meta.label} Document · ${doc.size}`;
+        document.getElementById("paperTitle").textContent =
+          doc.name.toUpperCase();
+        document.getElementById("dtFile").textContent =
+          doc.file || `${doc.name}.${doc.type}`;
+        document.getElementById("dtType").textContent =
+          `${meta.label} Document`;
+        document.getElementById("dtSize").textContent = doc.size;
+        document.getElementById("dtDate").textContent = formatDate(doc.date);
+        document.getElementById("dtBy").textContent = doc.uploadedBy || "You";
+        document.getElementById("dtVis").textContent =
+          doc.visibility === "shared" ? "Shared" : "Private";
+
+        if (folder) {
+          document.getElementById("bcFolder").textContent = folder.name;
+          document.getElementById("flName").textContent = folder.name;
+          document.getElementById("flSub").textContent = folder.shared
+            ? "Shared Society Folder"
+            : "Private Folder";
+          document
+            .getElementById("folderLink")
+            .addEventListener("click", () => {
+              window.location.href = `folder.html?folder=${encodeURIComponent(folder.id)}`;
+            });
+        }
+
+        document.getElementById("acTitle").textContent =
+          doc.visibility === "shared"
+            ? "Available to Society Members"
+            : "Private to You";
+        document.getElementById("acSub").textContent =
+          doc.visibility === "shared"
+            ? `Shared by ${doc.uploadedBy || "Admin"}`
+            : "Only you can access this document";
+
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", () => history.back());
+        document
+          .getElementById("bcDocuments")
+          .addEventListener(
+            "click",
+            () => (window.location.href = "documents.html"),
+          );
+        document.getElementById("bcFolder").addEventListener("click", () => {
+          if (folder)
+            window.location.href = `folder.html?folder=${encodeURIComponent(folder.id)}`;
+        });
+
+        let page = 1;
+        function setPage(n) {
+          page = Math.max(1, Math.min(5, n));
+          document.getElementById("pageNum").textContent = page;
+          document.getElementById("paperPage").textContent = `Page ${page}`;
+        }
+        document
+          .getElementById("prevPage")
+          .addEventListener("click", () => setPage(page - 1));
+        document
+          .getElementById("nextPage")
+          .addEventListener("click", () => setPage(page + 1));
+
+        let zoom = 1;
+        function applyZoom() {
+          document.getElementById("paper").style.transform = `scale(${zoom})`;
+        }
+        document.getElementById("zoomIn").addEventListener("click", () => {
+          zoom = Math.min(1.4, zoom + 0.1);
+          applyZoom();
+        });
+        document.getElementById("zoomOut").addEventListener("click", () => {
+          zoom = Math.max(0.8, zoom - 0.1);
+          applyZoom();
+        });
+        document.getElementById("zoomReset").addEventListener("click", () => {
+          zoom = 1;
+          applyZoom();
+        });
+
+        document
+          .getElementById("btnDownload")
+          .addEventListener("click", () =>
+            toast("Downloading " + (doc.file || doc.name)),
+          );
+        document
+          .getElementById("btnShare")
+          .addEventListener("click", () => toast("Share link copied"));
+        document
+          .getElementById("btnPrint")
+          .addEventListener("click", () => toast("Preparing to print..."));
+
+        document.getElementById("moreBtn").addEventListener("click", () => {
+          openActionsSheet({
+            title: doc.name,
+            subtitle: "Choose an action",
+            items: [
+              {
+                label: "Download",
+                icon: "↓",
+                onClick: () => toast("Downloading..."),
+              },
+              {
+                label: "Share",
+                icon: "↗",
+                onClick: () => toast("Share link copied"),
+              },
+              {
+                label: "Rename",
+                icon: "✎",
+                onClick: () => {
+                  const next = window.prompt("Rename document", doc.name);
+                  if (next && next.trim() && next.trim() !== doc.name) {
+                    Store.updateDoc(doc.id, { name: next.trim() });
+                    document.getElementById("docName").textContent =
+                      next.trim();
+                    toast("Renamed");
+                  }
+                },
+              },
+              {
+                label: "Delete",
+                icon: "🗑",
+                danger: true,
+                onClick: () =>
+                  Modal.confirm({
+                    title: "Delete document?",
+                    message: `"${doc.name}" will be permanently removed.`,
+                    confirmLabel: "Delete",
+                    danger: true,
+                    onConfirm: () => {
+                      Store.removeDoc(doc.id);
+                      toast("Document deleted");
+                      setTimeout(() => {
+                        if (folder)
+                          window.location.replace(
+                            `folder.html?folder=${encodeURIComponent(folder.id)}`,
+                          );
+                        else window.location.replace("documents.html");
+                      }, 400);
+                    },
+                  }),
+              },
+            ],
+          });
+        });
+      })();
+    </script>
+  </body>
+</html>

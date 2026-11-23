@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aptivo — Search & Filter</title>
+    <link rel="stylesheet" href="common.css" />
+    <style>
+      .section {
+        margin-bottom: 20px;
+      }
+      .date-row {
+        display: flex;
+        gap: 10px;
+      }
+      .date-row > div {
+        flex: 1;
+        min-width: 0;
+      }
+      .date-row label {
+        display: block;
+        font-size: 11px;
+        color: var(--color-text-2);
+        margin-bottom: 6px;
+      }
+      .vis-row {
+        display: flex;
+        gap: 8px;
+      }
+      .vis-option {
+        flex: 1;
+        padding: 11px 10px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+        background: #fff;
+        text-align: left;
+      }
+      .vis-option.active {
+        border-color: var(--color-primary);
+        background: #f2f7ff;
+      }
+      .vis-option strong {
+        display: block;
+        font-size: 13px;
+        font-weight: var(--fw-semibold);
+      }
+      .vis-option small {
+        display: block;
+        font-size: 10px;
+        color: var(--color-text-2);
+        margin-top: 3px;
+      }
+      .actions-row {
+        display: flex;
+        gap: 10px;
+        margin: 20px 0 22px;
+      }
+      .results-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .results-head strong {
+        font-size: var(--fs-body1);
+      }
+      .results-head small {
+        font-size: 11px;
+        color: var(--color-text-2);
+      }
+      .result-doc {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+        padding: 12px 4px;
+        border-bottom: 1px solid var(--color-border);
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .result-doc:hover {
+        background: #fafbff;
+      }
+      select.field {
+        width: 100%;
+        padding: 12px 13px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+        background: #fff;
+      }
+      input[type="date"] {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+        background: #fff;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header header--light">
+        <div class="header-row">
+          <button class="icon-btn" id="backBtn" aria-label="Back">‹</button>
+          <div class="header-title">
+            <h1>Search & Filter</h1>
+            <p>Find documents across your folders</p>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <div class="breadcrumb">
+          <button id="bcDocuments">Documents</button>
+          <span>›</span>
+          <span class="current">Search & Filter</span>
+        </div>
+
+        <div class="search">
+          <span class="search-icon">⌕</span>
+          <input
+            type="search"
+            id="searchInput"
+            placeholder="Search by document name..."
+          />
+          <button
+            class="search-end"
+            id="clearSearch"
+            type="button"
+            aria-label="Clear"
+          >
+            ×
+          </button>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <h2>File Type</h2>
+            <button class="section-action" data-clear="type">Clear</button>
+          </div>
+          <div class="chips" id="typeChips">
+            <button class="chip active" data-type="all">All</button>
+            <button class="chip" data-type="pdf">PDF</button>
+            <button class="chip" data-type="docx">Word</button>
+            <button class="chip" data-type="xlsx">Excel</button>
+            <button class="chip" data-type="image">Images</button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <h2>Folder</h2>
+            <button class="section-action" data-clear="folder">Clear</button>
+          </div>
+          <select id="folderSelect" class="field">
+            <option value="all">All Folders</option>
+          </select>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <h2>Visibility</h2>
+            <button class="section-action" data-clear="visibility">
+              Clear
+            </button>
+          </div>
+          <div class="vis-row" id="visRow">
+            <button
+              class="vis-option active"
+              data-visibility="all"
+              type="button"
+            >
+              <strong>All</strong><small>All documents</small>
+            </button>
+            <button class="vis-option" data-visibility="private" type="button">
+              <strong>Private</strong><small>Restricted</small>
+            </button>
+            <button class="vis-option" data-visibility="shared" type="button">
+              <strong>Shared</strong><small>Members</small>
+            </button>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head">
+            <h2>Upload Date</h2>
+            <button class="section-action" data-clear="date">Clear</button>
+          </div>
+          <div class="date-row">
+            <div><label>From</label><input type="date" id="fromDate" /></div>
+            <div><label>To</label><input type="date" id="toDate" /></div>
+          </div>
+        </div>
+
+        <div class="section">
+          <div class="section-head"><h2>Sort By</h2></div>
+          <select id="sortBy" class="field">
+            <option value="newest">Newest First</option>
+            <option value="oldest">Oldest First</option>
+            <option value="az">Name: A → Z</option>
+            <option value="za">Name: Z → A</option>
+          </select>
+        </div>
+
+        <div class="actions-row">
+          <button class="btn btn-ghost" id="resetBtn">Reset All</button>
+          <button class="btn btn-primary" id="applyBtn">Apply Filters</button>
+        </div>
+
+        <div class="results-head">
+          <strong>Results</strong>
+          <small id="resultCount">0 found</small>
+        </div>
+        <div id="results"></div>
+        <div class="empty" id="emptyState">
+          <span class="empty-icon">⌕</span>
+          No documents found. Try changing your search or filters.
+        </div>
+      </main>
+    </div>
+
+    <script src="common.js"></script>
+    <script>
+      (function () {
+        let activeType = "all";
+        let activeVisibility = "all";
+
+        const folderSelect = document.getElementById("folderSelect");
+        Store.folders().forEach((f) => {
+          const opt = document.createElement("option");
+          opt.value = f.id;
+          opt.textContent = f.name;
+          folderSelect.appendChild(opt);
+        });
+
+        function render() {
+          const query = document
+            .getElementById("searchInput")
+            .value.toLowerCase()
+            .trim();
+          const folderId = folderSelect.value;
+          const from = document.getElementById("fromDate").value;
+          const to = document.getElementById("toDate").value;
+          const sort = document.getElementById("sortBy").value;
+          const foldersMap = Object.fromEntries(
+            Store.folders().map((f) => [f.id, f.name]),
+          );
+
+          let items = Store.docs();
+          if (query)
+            items = items.filter((d) => d.name.toLowerCase().includes(query));
+          if (activeType !== "all")
+            items = items.filter((d) => d.type === activeType);
+          if (folderId !== "all")
+            items = items.filter((d) => d.folderId === folderId);
+          if (activeVisibility !== "all")
+            items = items.filter((d) => d.visibility === activeVisibility);
+          if (from) items = items.filter((d) => d.date >= from);
+          if (to) items = items.filter((d) => d.date <= to);
+
+          if (sort === "newest")
+            items.sort((a, b) => b.date.localeCompare(a.date));
+          else if (sort === "oldest")
+            items.sort((a, b) => a.date.localeCompare(b.date));
+          else if (sort === "az")
+            items.sort((a, b) => a.name.localeCompare(b.name));
+          else if (sort === "za")
+            items.sort((a, b) => b.name.localeCompare(a.name));
+
+          const container = document.getElementById("results");
+          document.getElementById("resultCount").textContent =
+            `${items.length} found`;
+          const empty = document.getElementById("emptyState");
+
+          if (!items.length) {
+            container.innerHTML = "";
+            empty.classList.add("show");
+            return;
+          }
+          empty.classList.remove("show");
+
+          container.innerHTML = items
+            .map((d) => {
+              const meta = fileMeta(d.type);
+              return `
+            <div class="result-doc" data-id="${escapeHtml(d.id)}">
+              <div class="file-icon ${meta.cls}">${meta.label}</div>
+              <div class="doc-info">
+                <strong>${escapeHtml(d.name)}</strong>
+                <p>${escapeHtml(foldersMap[d.folderId] || "Documents")} · ${d.visibility === "shared" ? "Shared" : "Private"}</p>
+                <div class="doc-meta"><span>${formatDate(d.date)}</span><span>•</span><span>${escapeHtml(d.size)}</span></div>
+              </div>
+              <span style="color:#bbb;font-size:18px">›</span>
+            </div>`;
+            })
+            .join("");
+
+          container.querySelectorAll(".result-doc").forEach((row) => {
+            row.addEventListener("click", () => {
+              window.location.href = `preview.html?doc=${encodeURIComponent(row.dataset.id)}`;
+            });
+          });
+        }
+
+        document.querySelectorAll("#typeChips .chip").forEach((chip) => {
+          chip.addEventListener("click", () => {
+            document
+              .querySelectorAll("#typeChips .chip")
+              .forEach((c) => c.classList.remove("active"));
+            chip.classList.add("active");
+            activeType = chip.dataset.type;
+            render();
+          });
+        });
+
+        document.querySelectorAll("#visRow .vis-option").forEach((opt) => {
+          opt.addEventListener("click", () => {
+            document
+              .querySelectorAll("#visRow .vis-option")
+              .forEach((o) => o.classList.remove("active"));
+            opt.classList.add("active");
+            activeVisibility = opt.dataset.visibility;
+            render();
+          });
+        });
+
+        document.querySelectorAll("[data-clear]").forEach((btn) => {
+          btn.addEventListener("click", () => {
+            const what = btn.dataset.clear;
+            if (what === "type") {
+              activeType = "all";
+              document
+                .querySelectorAll("#typeChips .chip")
+                .forEach((c) =>
+                  c.classList.toggle("active", c.dataset.type === "all"),
+                );
+            }
+            if (what === "folder") folderSelect.value = "all";
+            if (what === "visibility") {
+              activeVisibility = "all";
+              document
+                .querySelectorAll("#visRow .vis-option")
+                .forEach((o) =>
+                  o.classList.toggle("active", o.dataset.visibility === "all"),
+                );
+            }
+            if (what === "date") {
+              document.getElementById("fromDate").value = "";
+              document.getElementById("toDate").value = "";
+            }
+            render();
+          });
+        });
+
+        ["searchInput", "folderSelect", "fromDate", "toDate", "sortBy"].forEach(
+          (id) => {
+            document.getElementById(id).addEventListener("input", render);
+            document.getElementById(id).addEventListener("change", render);
+          },
+        );
+
+        document.getElementById("clearSearch").addEventListener("click", () => {
+          document.getElementById("searchInput").value = "";
+          render();
+        });
+
+        document.getElementById("resetBtn").addEventListener("click", () => {
+          document.getElementById("searchInput").value = "";
+          document.getElementById("fromDate").value = "";
+          document.getElementById("toDate").value = "";
+          document.getElementById("sortBy").value = "newest";
+          folderSelect.value = "all";
+          activeType = "all";
+          activeVisibility = "all";
+          document
+            .querySelectorAll("#typeChips .chip")
+            .forEach((c) =>
+              c.classList.toggle("active", c.dataset.type === "all"),
+            );
+          document
+            .querySelectorAll("#visRow .vis-option")
+            .forEach((o) =>
+              o.classList.toggle("active", o.dataset.visibility === "all"),
+            );
+          render();
+          toast("Filters reset");
+        });
+
+        document.getElementById("applyBtn").addEventListener("click", () => {
+          render();
+          toast(
+            `${document.getElementById("resultCount").textContent} — filters applied`,
+          );
+          document
+            .getElementById("results")
+            .scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", () => history.back());
+        document
+          .getElementById("bcDocuments")
+          .addEventListener(
+            "click",
+            () => (window.location.href = "documents.html"),
+          );
+
+        render();
+      })();
+    </script>
+  </body>
+</html>

@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Aptivo — Upload Document</title>
+    <link rel="stylesheet" href="common.css" />
+    <style>
+      .form-section {
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+        padding: 16px 14px;
+        margin-bottom: 14px;
+      }
+      .form-section h3 {
+        font-size: 13px;
+        font-weight: var(--fw-bold);
+        margin: 0 0 14px;
+      }
+      .file-picker {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        padding: 24px 16px;
+        margin-bottom: 10px;
+        border: 2px dashed #cfd9e6;
+        border-radius: var(--r-md);
+        background: #fbfdff;
+        transition:
+          border-color 0.15s,
+          background 0.15s;
+      }
+      .file-picker:hover {
+        border-color: var(--color-primary);
+        background: #f4f8ff;
+      }
+      .file-picker-icon {
+        font-size: 30px;
+        color: var(--color-primary);
+      }
+      .file-picker strong {
+        font-size: 13px;
+      }
+      .file-picker small {
+        font-size: 11px;
+        color: var(--color-text-2);
+      }
+      .file-picker.has-file {
+        border-style: solid;
+        border-color: var(--color-primary);
+        background: #f4f8ff;
+      }
+      .file-preview {
+        display: none;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+        background: #fff;
+      }
+      .file-preview.show {
+        display: flex;
+      }
+      .file-preview-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .file-preview-info strong {
+        display: block;
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .file-preview-info small {
+        display: block;
+        font-size: 11px;
+        color: var(--color-text-2);
+        margin-top: 3px;
+      }
+      .file-preview-remove {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        background: var(--color-surface);
+        color: var(--color-text-2);
+        font-size: 16px;
+        display: grid;
+        place-items: center;
+      }
+      .vis-options {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .vis-option {
+        display: flex;
+        align-items: center;
+        gap: 11px;
+        padding: 12px;
+        border: 1px solid var(--color-border);
+        border-radius: var(--r-md);
+        background: #fff;
+      }
+      .vis-option.selected {
+        border-color: var(--color-primary);
+        background: #f4f8ff;
+      }
+      .vis-option-icon {
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        display: grid;
+        place-items: center;
+        background: var(--color-surface);
+        border-radius: 9px;
+        font-size: 18px;
+      }
+      .vis-option-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .vis-option-info strong {
+        display: block;
+        font-size: 12px;
+        font-weight: var(--fw-semibold);
+        margin-bottom: 3px;
+      }
+      .vis-option-info small {
+        display: block;
+        font-size: 10px;
+        color: var(--color-text-2);
+        line-height: 1.4;
+      }
+      .vis-option-radio {
+        width: 18px;
+        height: 18px;
+        flex-shrink: 0;
+        border: 2px solid #bbb;
+        border-radius: 50%;
+        position: relative;
+      }
+      .vis-option.selected .vis-option-radio {
+        border-color: var(--color-primary);
+      }
+      .vis-option.selected .vis-option-radio::after {
+        content: "";
+        position: absolute;
+        inset: 3px;
+        background: var(--color-primary);
+        border-radius: 50%;
+      }
+      .switch {
+        position: relative;
+        width: 40px;
+        height: 22px;
+        flex-shrink: 0;
+        cursor: pointer;
+      }
+      .switch input {
+        display: none;
+      }
+      .switch .slider {
+        position: absolute;
+        inset: 0;
+        border-radius: 20px;
+        background: #ccc;
+        transition: background 0.2s;
+      }
+      .switch .slider::before {
+        content: "";
+        position: absolute;
+        top: 3px;
+        left: 3px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #fff;
+        transition: transform 0.2s;
+      }
+      .switch input:checked + .slider {
+        background: var(--color-primary);
+      }
+      .switch input:checked + .slider::before {
+        transform: translateX(18px);
+      }
+      .permission-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--color-border);
+      }
+      .permission-row:last-child {
+        border-bottom: 0;
+      }
+      .permission-row > div strong {
+        display: block;
+        font-size: 12px;
+        font-weight: var(--fw-semibold);
+        margin-bottom: 3px;
+      }
+      .permission-row > div small {
+        display: block;
+        font-size: 10px;
+        color: var(--color-text-2);
+      }
+      .form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 18px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app">
+      <header class="header">
+        <div class="status"><span>9:41 ● ◉</span><span>●●● ⌁ 93%</span></div>
+        <div class="header-row">
+          <button class="icon-btn" id="backBtn" aria-label="Back">‹</button>
+          <div class="header-title">
+            <h1>Upload Document</h1>
+            <p>Add a file to your folder</p>
+          </div>
+        </div>
+      </header>
+
+      <main class="content">
+        <form id="docForm" novalidate>
+          <section class="form-section">
+            <h3>Select File</h3>
+            <button
+              type="button"
+              class="file-picker"
+              id="filePicker"
+              style="width: 100%"
+            >
+              <div class="file-picker-icon">↑</div>
+              <strong>Tap to select a file</strong>
+              <small>PDF, DOCX, XLSX or image · Max 10 MB</small>
+            </button>
+            <div class="file-preview" id="filePreview">
+              <div class="file-icon pdf" id="fpIcon">PDF</div>
+              <div class="file-preview-info">
+                <strong id="fpName">file.pdf</strong>
+                <small id="fpMeta">2.4 MB · PDF</small>
+              </div>
+              <button
+                type="button"
+                class="file-preview-remove"
+                id="fpRemove"
+                aria-label="Remove"
+              >
+                ×
+              </button>
+            </div>
+            <div class="error" id="fileError" hidden></div>
+          </section>
+
+          <section class="form-section">
+            <h3>Document Information</h3>
+            <div class="field">
+              <label for="docName"
+                >Document Name <span class="required">*</span></label
+              >
+              <input
+                type="text"
+                id="docName"
+                placeholder="Enter document name"
+                maxlength="80"
+                autocomplete="off"
+              />
+              <div class="error" id="nameError" hidden></div>
+            </div>
+            <div class="field">
+              <label for="docFolder"
+                >Folder <span class="required">*</span></label
+              >
+              <select id="docFolder"></select>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h3>Visibility</h3>
+            <div class="vis-options">
+              <div class="vis-option selected" data-visibility="private">
+                <div class="vis-option-icon">🔒</div>
+                <div class="vis-option-info">
+                  <strong>Private</strong>
+                  <small>Only you can access this document.</small>
+                </div>
+                <div class="vis-option-radio"></div>
+              </div>
+              <div class="vis-option" data-visibility="shared">
+                <div class="vis-option-icon">👥</div>
+                <div class="vis-option-info">
+                  <strong>Shared with Society</strong>
+                  <small>Make this document available to members.</small>
+                </div>
+                <div class="vis-option-radio"></div>
+              </div>
+            </div>
+          </section>
+
+          <section class="form-section">
+            <h3>Permissions</h3>
+            <div class="permission-row">
+              <div>
+                <strong>Allow Downloads</strong>
+                <small>Others can download this document</small>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="allowDownload" checked />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div class="permission-row">
+              <div>
+                <strong>Notify Members</strong>
+                <small>Send a notification when uploaded</small>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="notifyMembers" />
+                <span class="slider"></span>
+              </label>
+            </div>
+          </section>
+
+          <div class="form-actions">
+            <button type="button" class="btn btn-ghost" id="cancelBtn">
+              Cancel
+            </button>
+            <button type="submit" class="btn btn-primary">Upload</button>
+          </div>
+        </form>
+      </main>
+    </div>
+
+    <script src="common.js"></script>
+    <script>
+      (function () {
+        const presetFolderId = qs("folder");
+        let selectedFile = null;
+        let selectedVisibility = "private";
+
+        const folderSelect = document.getElementById("docFolder");
+        Store.folders().forEach((f) => {
+          const opt = document.createElement("option");
+          opt.value = f.id;
+          opt.textContent = f.name;
+          folderSelect.appendChild(opt);
+        });
+        if (presetFolderId) folderSelect.value = presetFolderId;
+
+        const SAMPLES = [
+          { type: "pdf", name: "Invoice_Nov.pdf", size: "1.2 MB" },
+          { type: "docx", name: "Meeting_Minutes.docx", size: "850 KB" },
+          { type: "xlsx", name: "Budget.xlsx", size: "920 KB" },
+          { type: "image", name: "Event_Poster.jpg", size: "3.2 MB" },
+        ];
+        let sampleIdx = 0;
+
+        const picker = document.getElementById("filePicker");
+        const preview = document.getElementById("filePreview");
+        const fpIcon = document.getElementById("fpIcon");
+        const fpName = document.getElementById("fpName");
+        const fpMeta = document.getElementById("fpMeta");
+        const fileError = document.getElementById("fileError");
+
+        picker.addEventListener("click", () => {
+          const sample = SAMPLES[sampleIdx % SAMPLES.length];
+          sampleIdx++;
+          selectedFile = sample;
+          const meta = fileMeta(sample.type);
+
+          fpIcon.className = "file-icon " + meta.cls;
+          fpIcon.textContent = meta.label;
+          fpName.textContent = sample.name;
+          fpMeta.textContent = `${sample.size} · ${meta.label}`;
+          preview.classList.add("show");
+          picker.classList.add("has-file");
+          fileError.hidden = true;
+
+          const nameInput = document.getElementById("docName");
+          if (!nameInput.value.trim()) {
+            nameInput.value = sample.name.replace(/\.[^.]+$/, "");
+          }
+        });
+
+        document.getElementById("fpRemove").addEventListener("click", () => {
+          selectedFile = null;
+          preview.classList.remove("show");
+          picker.classList.remove("has-file");
+        });
+
+        document.querySelectorAll(".vis-option").forEach((opt) => {
+          opt.addEventListener("click", () => {
+            document
+              .querySelectorAll(".vis-option")
+              .forEach((o) => o.classList.remove("selected"));
+            opt.classList.add("selected");
+            selectedVisibility = opt.dataset.visibility;
+          });
+        });
+
+        document
+          .getElementById("cancelBtn")
+          .addEventListener("click", () => history.back());
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", () => history.back());
+
+        document.getElementById("docForm").addEventListener("submit", (e) => {
+          e.preventDefault();
+          const nameInput = document.getElementById("docName");
+          const name = nameInput.value.trim();
+          const nameError = document.getElementById("nameError");
+          const folderId = folderSelect.value;
+
+          nameError.hidden = true;
+          fileError.hidden = true;
+
+          if (!selectedFile) {
+            fileError.textContent = "Please select a file to upload.";
+            fileError.hidden = false;
+            return;
+          }
+          if (!name) {
+            nameError.textContent = "Please enter a document name.";
+            nameError.hidden = false;
+            nameInput.focus();
+            return;
+          }
+
+          Store.addDoc({
+            name,
+            file: selectedFile.name,
+            type: selectedFile.type,
+            size: selectedFile.size,
+            date: new Date().toISOString().slice(0, 10),
+            folderId,
+            uploadedBy: "You",
+            visibility: selectedVisibility,
+            allowDownload: document.getElementById("allowDownload").checked,
+            notifyMembers: document.getElementById("notifyMembers").checked,
+          });
+
+          toast("Document uploaded");
+          setTimeout(() => {
+            if (presetFolderId)
+              window.location.replace(
+                `folder.html?folder=${encodeURIComponent(presetFolderId)}`,
+              );
+            else window.location.replace("documents.html");
+          }, 600);
+        });
+      })();
+    </script>
+  </body>
+</html>
