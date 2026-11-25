@@ -1145,7 +1145,7 @@ function roleLinks(currentRole, convId) {
     guard: convId ? "guard-chat.html?id=" + enc : "guard-inbox.html",
     admin: convId ? "admin-chat.html?id=" + enc : "admin-monitor.html",
   };
-  const labels = { resident: "Resident", guard: "Guard", admin: "Admin" };
+  const labels = { resident: "Resident", guard: "Guard" };
   const out = [];
   ["resident", "guard"].forEach(function (role) {
     if (role === currentRole) return;
