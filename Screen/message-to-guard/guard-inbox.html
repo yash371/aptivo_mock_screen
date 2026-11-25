@@ -1,0 +1,370 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Resident Messages · Guard · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific — demo notification strip */
+      .demo-strip {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        padding: 10px 12px;
+        margin-bottom: var(--space-md);
+        background: rgba(0, 122, 255, 0.08);
+        border-radius: var(--radius-md);
+        font-size: 12px;
+        line-height: 17px;
+        color: var(--color-primary-dark);
+      }
+      .demo-strip .demo-icon {
+        width: 28px;
+        height: 28px;
+        border-radius: var(--radius-pill);
+        background: rgba(0, 122, 255, 0.15);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .demo-strip .demo-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .demo-strip .demo-body strong {
+        font-weight: 600;
+      }
+      .demo-strip button {
+        background: var(--color-primary);
+        color: #fff;
+        border: none;
+        padding: 6px 12px;
+        border-radius: var(--radius-pill);
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        flex-shrink: 0;
+        font-family: inherit;
+      }
+      .demo-strip button:hover {
+        background: var(--color-primary-dark);
+      }
+
+      /* New-message sound pulse animation on simulate */
+      @keyframes soundPulse {
+        0% {
+          box-shadow: 0 0 0 0 rgba(0, 122, 255, 0.35);
+        }
+        70% {
+          box-shadow: 0 0 0 14px rgba(0, 122, 255, 0);
+        }
+        100% {
+          box-shadow: 0 0 0 0 rgba(0, 122, 255, 0);
+        }
+      }
+      .pulse {
+        animation: soundPulse 1s ease-out 2;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <div class="header-title">
+          <h1>Resident Messages</h1>
+          <div class="sub" id="guardSub">Ramesh Kumar · Gate A</div>
+        </div>
+        <div class="row gap-xs" id="roleSwitch"></div>
+        <button
+          type="button"
+          class="header-action ghost"
+          id="soundBtn"
+          aria-label="Notification sound toggle"
+          style="font-size: 16px"
+        >
+          🔔
+        </button>
+      </header>
+
+      <!-- ============ Content ============ -->
+      <main class="app-content">
+        <!-- Demo notification strip -->
+        <div class="demo-strip" id="demoStrip">
+          <span class="demo-icon">📣</span>
+          <div class="demo-body">
+            <strong>Demo:</strong> trigger an incoming message to see
+            notifications.
+          </div>
+          <button type="button" id="simulateBtn">Simulate</button>
+        </div>
+
+        <!-- Filter tabs -->
+        <div
+          class="segmented"
+          id="tabs"
+          role="tablist"
+          aria-label="Filter conversations"
+        >
+          <button type="button" data-filter="all" class="active" role="tab">
+            All
+          </button>
+          <button type="button" data-filter="active" role="tab">Active</button>
+          <button type="button" data-filter="resolved" role="tab">
+            Resolved
+          </button>
+          <button type="button" data-filter="closed" role="tab">Closed</button>
+        </div>
+
+        <!-- Conversation list -->
+        <div id="list" class="stack stack-sm"></div>
+      </main>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* ---- Role switch (demo navigation) ---- */
+        document.getElementById("roleSwitch").innerHTML = roleLinks(
+          "guard",
+          null,
+        );
+
+        /* ---- Constants ---- */
+        var GUARD_ID = Store.PRIMARY_GUARD;
+        var guard = Store.getGuard(GUARD_ID);
+
+        if (!guard) {
+          toast("Guard profile missing", "error");
+          return;
+        }
+
+        /* ---- Header sub ---- */
+        document.getElementById("guardSub").textContent =
+          guard.name + " · " + guard.gate;
+
+        /* ---- State ---- */
+        var currentFilter = "all";
+        var soundOn = true;
+        var listEl = document.getElementById("list");
+        var soundBtn = document.getElementById("soundBtn");
+
+        /* ---- Sound toggle ---- */
+        soundBtn.addEventListener("click", function () {
+          soundOn = !soundOn;
+          soundBtn.textContent = soundOn ? "🔔" : "🔕";
+          soundBtn.setAttribute(
+            "aria-label",
+            soundOn ? "Notification sound on" : "Notification sound off",
+          );
+          toast(soundOn ? "Sound on" : "Sound off", "info", 1500);
+        });
+
+        /* ---- Preview of last message from guard POV ---- */
+        function lastPreview(msg) {
+          if (!msg) return "No messages yet";
+          var prefix = msg.senderType === "guard" ? "You: " : "";
+          if (msg.text) return prefix + msg.text;
+          if (msg.attachments && msg.attachments.length) {
+            var a = msg.attachments[0];
+            if (a.type === "image")
+              return prefix + "📷 Photo" + (a.name ? " · " + a.name : "");
+            return prefix + "📄 File" + (a.name ? " · " + a.name : "");
+          }
+          return "No messages yet";
+        }
+
+        /* ---- Card render ---- */
+        function renderCard(conv) {
+          var last = Store.getLastMessage(conv.id);
+          var unread = conv.unreadForGuard || 0;
+          var preview = lastPreview(last);
+          var time = last
+            ? relativeTime(last.createdAt)
+            : relativeTime(conv.createdAt);
+          var broadcast = conv.recipientType === "all";
+
+          return (
+            '<button type="button" class="conv-card" data-id="' +
+            escapeHtml(conv.id) +
+            '">' +
+            avatarHTML(conv.residentName, { role: "admin" }) +
+            '<div class="conv-card-body">' +
+            '<div class="conv-card-top">' +
+            '<span class="conv-card-name">' +
+            escapeHtml(conv.residentName) +
+            "</span>" +
+            '<span class="conv-card-time">' +
+            time +
+            "</span>" +
+            "</div>" +
+            '<div class="conv-card-msg">' +
+            escapeHtml(preview) +
+            "</div>" +
+            '<div class="conv-card-bottom">' +
+            '<span class="chip">' +
+            escapeHtml(conv.residentUnit) +
+            "</span>" +
+            convStatusChip(conv.status) +
+            (broadcast ? '<span class="chip warning">Broadcast</span>' : "") +
+            (unread > 0
+              ? '<span class="badge-unread">' + unread + "</span>"
+              : "") +
+            "</div>" +
+            "</div>" +
+            "</button>"
+          );
+        }
+
+        /* ---- Empty state ---- */
+        function renderEmpty(filter) {
+          var map = {
+            all: {
+              icon: "📨",
+              title: "No messages yet",
+              desc: "Resident messages will appear here as soon as they arrive.",
+            },
+            active: {
+              icon: "💬",
+              title: "No active conversations",
+              desc: "Conversations awaiting your reply will show here.",
+            },
+            resolved: {
+              icon: "🟢",
+              title: "No resolved conversations",
+              desc: "Issues you mark as resolved will appear here.",
+            },
+            closed: {
+              icon: "📁",
+              title: "No closed conversations",
+              desc: "Closed conversations will appear here.",
+            },
+          };
+          var c = map[filter] || map.all;
+          return (
+            '<div class="empty-state">' +
+            '<div class="empty-icon">' +
+            c.icon +
+            "</div>" +
+            '<h3 class="empty-title">' +
+            c.title +
+            "</h3>" +
+            '<p class="empty-desc">' +
+            c.desc +
+            "</p>" +
+            "</div>"
+          );
+        }
+
+        /* ---- List render ---- */
+        function renderList() {
+          var all = Store.getConversationsForGuard(GUARD_ID);
+          var filtered =
+            currentFilter === "all"
+              ? all
+              : all.filter(function (c) {
+                  return c.status === currentFilter;
+                });
+
+          if (!filtered.length) {
+            listEl.innerHTML = renderEmpty(currentFilter);
+            return;
+          }
+          listEl.innerHTML = filtered.map(renderCard).join("");
+        }
+
+        /* ---- Tabs ---- */
+        document.querySelectorAll("#tabs button").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            document.querySelectorAll("#tabs button").forEach(function (b) {
+              b.classList.remove("active");
+              b.setAttribute("aria-selected", "false");
+            });
+            btn.classList.add("active");
+            btn.setAttribute("aria-selected", "true");
+            currentFilter = btn.dataset.filter;
+            renderList();
+          });
+        });
+
+        /* ---- Card tap → guard chat ---- */
+        listEl.addEventListener("click", function (e) {
+          var card = e.target.closest && e.target.closest(".conv-card");
+          if (!card || !card.dataset.id) return;
+          navigate("guard-chat.html?id=" + encodeURIComponent(card.dataset.id));
+        });
+
+        /* ---- Simulate incoming ---- */
+        var simulateBtn = document.getElementById("simulateBtn");
+
+        function playBeep() {
+          if (!soundOn) return;
+          try {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            var ctx = new Ctx();
+            var osc = ctx.createOscillator();
+            var gain = ctx.createGain();
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.type = "sine";
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(
+              0.15,
+              ctx.currentTime + 0.02,
+            );
+            gain.gain.exponentialRampToValueAtTime(
+              0.0001,
+              ctx.currentTime + 0.35,
+            );
+            osc.start();
+            osc.stop(ctx.currentTime + 0.36);
+          } catch (err) {
+            /* silently ignore */
+          }
+        }
+
+        simulateBtn.addEventListener("click", function () {
+          var result = Store.simulateIncomingForGuard(GUARD_ID);
+          if (!result) {
+            toast("No active conversations to message", "info");
+            return;
+          }
+          playBeep();
+
+          /* Visual pulse on bell */
+          soundBtn.classList.remove("pulse");
+          void soundBtn.offsetWidth;
+          soundBtn.classList.add("pulse");
+
+          /* In-app toast */
+          toast(
+            "New message from " + result.conversation.residentName,
+            "info",
+            2600,
+          );
+
+          /* Re-render so the unread badge appears immediately */
+          renderList();
+
+          /* If filter hides the updated convo, hint the user */
+          if (currentFilter !== "all" && currentFilter !== "active") {
+            setTimeout(function () {
+              toast('Check the "Active" tab for the new message', "info", 2200);
+            }, 800);
+          }
+        });
+
+        /* ---- First render ---- */
+        renderList();
+      });
+    </script>
+  </body>
+</html>

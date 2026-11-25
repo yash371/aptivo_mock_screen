@@ -1,0 +1,289 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Conversation Details · Admin · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific — read-only notice replacing composer */
+      .readonly-notice {
+        background: var(--color-bg);
+        padding: var(--space-md);
+        padding-bottom: calc(
+          var(--space-md) + env(safe-area-inset-bottom, 0px)
+        );
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        font-size: 13px;
+        line-height: 19px;
+        color: var(--color-text-2);
+      }
+      .readonly-notice .ro-lock {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-pill);
+        background: rgba(107, 70, 193, 0.12);
+        color: #6b46c1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .readonly-notice .ro-text {
+        flex: 1;
+        min-width: 0;
+      }
+      .readonly-notice .ro-text strong {
+        color: var(--color-text);
+        font-weight: 600;
+      }
+
+      /* Conversation info panel */
+      .info-panel {
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        padding: 12px var(--space-md);
+        margin: var(--space-md) var(--space-md) 0;
+        font-size: 12px;
+        line-height: 18px;
+        color: var(--color-text-2);
+        flex-shrink: 0;
+      }
+      .info-panel .info-row {
+        display: flex;
+        justify-content: space-between;
+        gap: var(--space-sm);
+      }
+      .info-panel .info-row + .info-row {
+        margin-top: 4px;
+      }
+      .info-panel .info-label {
+        opacity: 0.85;
+      }
+      .info-panel .info-value {
+        color: var(--color-text);
+        font-weight: 500;
+        text-align: right;
+      }
+
+      /* Audit chip on bubbles */
+      .audit-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        font-size: 10px;
+        font-weight: 600;
+        padding: 1px 6px;
+        border-radius: var(--radius-pill);
+        background: rgba(107, 70, 193, 0.1);
+        color: #553c9a;
+        margin-left: 4px;
+        letter-spacing: 0.2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1 id="residentName">Loading…</h1>
+          <div class="sub" id="residentSub"></div>
+        </div>
+        <div class="row gap-xs" id="roleSwitch"></div>
+        <span class="audit-chip" style="margin-right: 4px">Read-only</span>
+      </header>
+
+      <!-- ============ Conversation info ============ -->
+      <div class="info-panel" id="infoPanel"></div>
+
+      <!-- ============ Chat scroll ============ -->
+      <div class="chat-scroll" id="chatScroll">
+        <div class="chat-list" id="chatList"></div>
+      </div>
+
+      <!-- ============ Read-only notice (replaces composer) ============ -->
+      <div class="readonly-notice" id="readonlyNotice">
+        <span class="ro-lock">🔒</span>
+        <div class="ro-text">
+          <strong>Read-only supervisor view.</strong> Replies and status changes
+          are handled by guards.
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* =================================================
+         1. Resolve conversation
+         ================================================= */
+        var convId = getParam("id");
+        if (!convId) {
+          navigate("admin-monitor.html");
+          return;
+        }
+
+        var conv = Store.getConversation(convId);
+        if (!conv) {
+          toast("Conversation not found", "error");
+          setTimeout(function () {
+            navigate("admin-monitor.html");
+          }, 800);
+          return;
+        }
+
+        /* =================================================
+         2. DOM refs
+         ================================================= */
+        var chatScroll = document.getElementById("chatScroll");
+        var chatList = document.getElementById("chatList");
+        var residentNameEl = document.getElementById("residentName");
+        var residentSubEl = document.getElementById("residentSub");
+        var roleSwitchEl = document.getElementById("roleSwitch");
+        var infoPanel = document.getElementById("infoPanel");
+
+        /* =================================================
+         3. Render — header
+         ================================================= */
+        function renderHeader() {
+          residentNameEl.textContent = conv.residentName;
+          residentSubEl.innerHTML =
+            escapeHtml(conv.residentUnit) +
+            " · " +
+            escapeHtml(conv.recipientLabel);
+        }
+
+        /* =================================================
+         4. Render — conversation info panel
+         ================================================= */
+        function renderInfo() {
+          var statusLabel = (CONV_STATUS[conv.status] || CONV_STATUS.active)
+            .label;
+          var totalMsgs = Store.getMessages(convId).length;
+          var started = new Date(conv.createdAt);
+          var last = Store.getLastMessage(convId);
+          var lastLabel = last ? relativeTime(last.createdAt) : "—";
+
+          infoPanel.innerHTML =
+            '<div class="info-row">' +
+            '<span class="info-label">Recipient</span>' +
+            '<span class="info-value">' +
+            escapeHtml(conv.recipientLabel) +
+            "</span>" +
+            "</div>" +
+            '<div class="info-row">' +
+            '<span class="info-label">Status</span>' +
+            '<span class="info-value">' +
+            escapeHtml(statusLabel) +
+            "</span>" +
+            "</div>" +
+            '<div class="info-row">' +
+            '<span class="info-label">Messages</span>' +
+            '<span class="info-value">' +
+            totalMsgs +
+            "</span>" +
+            "</div>" +
+            '<div class="info-row">' +
+            '<span class="info-label">Started</span>' +
+            '<span class="info-value">' +
+            formatDate(started.getTime()) +
+            "</span>" +
+            "</div>" +
+            '<div class="info-row">' +
+            '<span class="info-label">Last activity</span>' +
+            '<span class="info-value">' +
+            escapeHtml(lastLabel) +
+            "</span>" +
+            "</div>";
+        }
+
+        /* =================================================
+         5. Render — messages (admin POV: guard = outgoing)
+         ================================================= */
+        function renderMessages() {
+          var messages = Store.getMessages(convId);
+          if (!messages.length) {
+            chatList.innerHTML =
+              '<div class="empty-state">' +
+              '<div class="empty-icon">💬</div>' +
+              '<h3 class="empty-title">No messages</h3>' +
+              '<p class="empty-desc">This conversation has no messages yet.</p>' +
+              "</div>";
+            return;
+          }
+          /* myRole = 'admin' → guard's messages render outgoing (right) */
+          chatList.innerHTML = renderChatMessages(messages, "admin");
+        }
+
+        function scrollToBottom() {
+          requestAnimationFrame(function () {
+            chatScroll.scrollTop = chatScroll.scrollHeight;
+          });
+        }
+
+        /* =================================================
+         6. Role switch
+         ================================================= */
+        function renderRoleSwitch() {
+          roleSwitchEl.innerHTML = roleLinks("admin", convId);
+        }
+
+        /* =================================================
+         7. Full render
+         ================================================= */
+        function renderAll() {
+          renderHeader();
+          renderInfo();
+          renderMessages();
+          renderRoleSwitch();
+          scrollToBottom();
+        }
+
+        /* =================================================
+         8. Back
+         ================================================= */
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", function () {
+            goBack("admin-monitor.html");
+          });
+
+        /* =================================================
+         9. Init
+         ================================================= */
+        renderAll();
+
+        /* Subtle refresh for admin monitor (keeps view in sync as demo switches roles) */
+        setInterval(function () {
+          var fresh = Store.getConversation(convId);
+          if (!fresh) return;
+          var prevStatus = conv.status;
+          conv = fresh;
+          renderHeader();
+          renderInfo();
+          renderMessages();
+          if (conv.status !== prevStatus) {
+            toast(
+              "Conversation status updated to " +
+                (CONV_STATUS[conv.status] || CONV_STATUS.active).label,
+              "info",
+              1800,
+            );
+          }
+        }, 3000);
+      });
+    </script>
+  </body>
+</html>

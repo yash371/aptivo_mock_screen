@@ -1,0 +1,637 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Guard Chat · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific only */
+      .composer-area {
+        background: var(--color-bg);
+        box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.05);
+        flex-shrink: 0;
+        padding-bottom: env(safe-area-inset-bottom, 0px);
+      }
+      .composer-area .composer {
+        box-shadow: none;
+        padding-bottom: var(--space-sm);
+      }
+      .attach-preview {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        padding: var(--space-sm) var(--space-md) 0;
+      }
+      .attach-preview .preview-item {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        padding: 6px 10px;
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        max-width: 100%;
+        min-width: 0;
+      }
+      .attach-preview .preview-thumb {
+        width: 36px;
+        height: 36px;
+        border-radius: var(--radius-sm);
+        background: var(--color-surface-alt);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+        overflow: hidden;
+      }
+      .attach-preview .preview-thumb img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+      }
+      .attach-preview .preview-meta {
+        min-width: 0;
+        flex: 1;
+      }
+      .attach-preview .preview-name {
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .attach-preview .preview-size {
+        font-size: 11px;
+        color: var(--color-text-2);
+        margin-top: 1px;
+      }
+      .attach-preview .preview-close {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--color-surface-alt);
+        border: none;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        line-height: 1;
+        color: var(--color-text-2);
+        flex-shrink: 0;
+        font-family: inherit;
+      }
+      .attach-preview .preview-close:hover {
+        background: var(--color-border);
+      }
+
+      /* Banner for guards (non-resolved-active states — no reopen) */
+      .status-banner .banner-note {
+        font-size: 11px;
+        opacity: 0.75;
+        margin-top: 2px;
+        font-style: italic;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1 id="residentName">Loading…</h1>
+          <div class="sub" id="residentSub"></div>
+        </div>
+        <div class="row gap-xs" id="roleSwitch"></div>
+        <button
+          type="button"
+          class="header-action ghost"
+          id="moreBtn"
+          aria-label="More actions"
+          style="font-size: 20px"
+        >
+          ⋯
+        </button>
+      </header>
+
+      <!-- ============ Status banner ============ -->
+      <div id="statusBanner" class="hidden"></div>
+
+      <!-- ============ Chat scroll ============ -->
+      <div class="chat-scroll" id="chatScroll">
+        <div class="chat-list" id="chatList"></div>
+      </div>
+
+      <!-- ============ Composer ============ -->
+      <div class="composer-area" id="composerArea">
+        <div id="attachmentPreview" class="hidden"></div>
+        <div class="composer">
+          <button
+            type="button"
+            class="icon-btn"
+            id="attachBtn"
+            aria-label="Attach"
+          >
+            📎
+          </button>
+          <div class="composer-input-wrap">
+            <textarea
+              class="composer-input"
+              id="msgInput"
+              placeholder="Reply to resident…"
+              rows="1"
+              maxlength="1200"
+              aria-label="Reply"
+            ></textarea>
+            <div class="composer-meta">
+              <span></span>
+              <span class="char-count" id="charCount">0/1000</span>
+            </div>
+          </div>
+          <button
+            type="button"
+            class="send-btn"
+            id="sendBtn"
+            aria-label="Send reply"
+            disabled
+          >
+            ➤
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* =================================================
+         1. Resolve conversation
+         ================================================= */
+        var convId = getParam("id");
+        if (!convId) {
+          navigate("guard-inbox.html");
+          return;
+        }
+
+        var conv = Store.getConversation(convId);
+        var GUARD_ID = Store.PRIMARY_GUARD;
+        var guard = Store.getGuard(GUARD_ID);
+
+        if (!conv) {
+          toast("Conversation not found", "error");
+          setTimeout(function () {
+            navigate("guard-inbox.html");
+          }, 800);
+          return;
+        }
+
+        /* Guard can only see their own + broadcast conversations */
+        var allowed = conv.guardId === GUARD_ID || conv.recipientType === "all";
+        if (!allowed) {
+          toast("You do not have access to this conversation", "error");
+          setTimeout(function () {
+            navigate("guard-inbox.html");
+          }, 900);
+          return;
+        }
+
+        if (!guard) {
+          toast("Guard profile missing", "error");
+          return;
+        }
+
+        /* =================================================
+         2. DOM refs
+         ================================================= */
+        var chatScroll = document.getElementById("chatScroll");
+        var chatList = document.getElementById("chatList");
+        var residentNameEl = document.getElementById("residentName");
+        var residentSubEl = document.getElementById("residentSub");
+        var composerArea = document.getElementById("composerArea");
+        var msgInput = document.getElementById("msgInput");
+        var charCount = document.getElementById("charCount");
+        var sendBtn = document.getElementById("sendBtn");
+        var attachBtn = document.getElementById("attachBtn");
+        var moreBtn = document.getElementById("moreBtn");
+        var statusBanner = document.getElementById("statusBanner");
+        var attachmentPreview = document.getElementById("attachmentPreview");
+        var roleSwitchEl = document.getElementById("roleSwitch");
+
+        /* =================================================
+         3. State
+         ================================================= */
+        var pendingAttachment = null;
+        var statusPollTimer = null;
+
+        /* =================================================
+         4. Render — header
+         ================================================= */
+        function renderHeader() {
+          residentNameEl.textContent = conv.residentName;
+          var subParts = [conv.residentUnit];
+          if (conv.recipientType === "all") subParts.push("Broadcast");
+          residentSubEl.innerHTML = subParts.map(escapeHtml).join(" · ");
+        }
+
+        /* =================================================
+         5. Render — messages (from guard POV)
+         ================================================= */
+        function renderMessages() {
+          var messages = Store.getMessages(convId);
+          if (!messages.length) {
+            chatList.innerHTML =
+              '<div class="empty-state">' +
+              '<div class="empty-icon">💬</div>' +
+              '<h3 class="empty-title">No messages yet</h3>' +
+              '<p class="empty-desc">Messages from the resident will appear here.</p>' +
+              "</div>";
+            return;
+          }
+          /* myRole = 'guard' → guard's own messages render outgoing (right, blue) */
+          chatList.innerHTML = renderChatMessages(messages, "guard");
+        }
+
+        function scrollToBottom() {
+          requestAnimationFrame(function () {
+            chatScroll.scrollTop = chatScroll.scrollHeight;
+          });
+        }
+
+        function isNearBottom() {
+          return (
+            chatScroll.scrollHeight -
+              chatScroll.scrollTop -
+              chatScroll.clientHeight <
+            60
+          );
+        }
+
+        /* =================================================
+         6. Render — banner
+         ================================================= */
+        function renderBanner() {
+          if (conv.status === "active") {
+            statusBanner.className = "hidden";
+            statusBanner.innerHTML = "";
+            composerArea.classList.remove("hidden");
+            return;
+          }
+
+          var isResolved = conv.status === "resolved";
+          statusBanner.className =
+            "status-banner " + (isResolved ? "resolved" : "closed");
+          statusBanner.innerHTML =
+            '<span class="banner-icon">' +
+            (isResolved ? "✓" : "📁") +
+            "</span>" +
+            '<div class="banner-body">' +
+            '<div class="banner-title">' +
+            (isResolved ? "Marked as Resolved" : "Conversation Closed") +
+            "</div>" +
+            '<div class="banner-desc">' +
+            (isResolved
+              ? "You marked this issue as resolved."
+              : "You closed this conversation.") +
+            "</div>" +
+            '<div class="banner-note">Resident can reopen if the issue persists.</div>' +
+            "</div>";
+
+          composerArea.classList.add("hidden");
+        }
+
+        /* =================================================
+         7. Render — role-switch links
+         ================================================= */
+        function renderRoleSwitch() {
+          roleSwitchEl.innerHTML = roleLinks("guard", convId);
+        }
+
+        /* =================================================
+         8. Composer state
+         ================================================= */
+        function updateComposerState() {
+          var text = msgInput.value;
+          var len = text.length;
+          charCount.textContent = len + "/" + LIMITS.MESSAGE_MAX;
+          charCount.classList.toggle("over", len > LIMITS.MESSAGE_MAX);
+
+          var hasText = text.trim().length > 0;
+          var hasAttach = !!pendingAttachment;
+          var isValid = (hasText || hasAttach) && len <= LIMITS.MESSAGE_MAX;
+          sendBtn.disabled = !isValid;
+        }
+
+        /* =================================================
+         9. Attachment preview (same pattern as resident chat)
+         ================================================= */
+        function renderAttachmentPreview() {
+          if (!pendingAttachment) {
+            attachmentPreview.innerHTML = "";
+            attachmentPreview.classList.add("hidden");
+            return;
+          }
+          attachmentPreview.classList.remove("hidden");
+          var a = pendingAttachment;
+          var thumb =
+            a.type === "image" && a.url
+              ? '<img src="' + escapeHtml(a.url) + '" alt="" />'
+              : "📄";
+          attachmentPreview.innerHTML =
+            '<div class="attach-preview">' +
+            '<div class="preview-item">' +
+            '<div class="preview-thumb">' +
+            thumb +
+            "</div>" +
+            '<div class="preview-meta">' +
+            '<div class="preview-name">' +
+            escapeHtml(a.name) +
+            "</div>" +
+            '<div class="preview-size">' +
+            escapeHtml(a.size) +
+            "</div>" +
+            "</div>" +
+            '<button type="button" class="preview-close" id="removeAttach" aria-label="Remove attachment">×</button>' +
+            "</div>" +
+            "</div>";
+          document
+            .getElementById("removeAttach")
+            .addEventListener("click", function () {
+              pendingAttachment = null;
+              renderAttachmentPreview();
+              updateComposerState();
+            });
+        }
+
+        /* =================================================
+         10. Attachment picker
+         ================================================= */
+        function openAttachSheet() {
+          Sheet.open({
+            title: "Attach",
+            options: [
+              {
+                label: "Photo",
+                description: "Send a photo (JPG, PNG)",
+                icon: "🖼",
+              },
+              {
+                label: "Document",
+                description: "Send a file (PDF, DOC)",
+                icon: "📄",
+              },
+            ],
+            onSelect: function (opt, idx) {
+              if (idx === 0) pickImage();
+              else pickFile();
+            },
+          });
+        }
+
+        function pickImage() {
+          var labels = [
+            "Security Check",
+            "Gate View",
+            "Visitor Verification",
+            "Parking Spot",
+          ];
+          var label = labels[Math.floor(Math.random() * labels.length)];
+          pendingAttachment = {
+            type: "image",
+            url: Store.svgImage(label, "#2c5282"),
+            name: label.toLowerCase().replace(/\s+/g, "-") + ".jpg",
+            size: Math.floor(Math.random() * 400 + 100) + " KB",
+          };
+          renderAttachmentPreview();
+          updateComposerState();
+        }
+
+        function pickFile() {
+          pendingAttachment = {
+            type: "file",
+            url: "#",
+            name: "incident-report.pdf",
+            size: "128 KB",
+          };
+          renderAttachmentPreview();
+          updateComposerState();
+        }
+
+        /* =================================================
+         11. Send reply
+         ================================================= */
+        function sendReply() {
+          var text = msgInput.value.trim();
+          var hasText = text.length > 0;
+          var hasAttach = !!pendingAttachment;
+
+          if (!hasText && !hasAttach) return;
+          if (text.length > LIMITS.MESSAGE_MAX) {
+            toast(
+              "Message exceeds " + LIMITS.MESSAGE_MAX + " characters",
+              "error",
+            );
+            return;
+          }
+
+          Store.sendMessage(convId, {
+            senderType: "guard",
+            senderName: conv.guardName || guard.name,
+            text: text,
+            attachments: pendingAttachment ? [pendingAttachment] : [],
+          });
+
+          msgInput.value = "";
+          msgInput.style.height = "auto";
+          pendingAttachment = null;
+          renderAttachmentPreview();
+          updateComposerState();
+
+          renderMessages();
+          renderBanner();
+          scrollToBottom();
+          startStatusPolling();
+        }
+
+        /* =================================================
+         12. Polling for status updates
+         ================================================= */
+        function startStatusPolling() {
+          if (statusPollTimer) return;
+          statusPollTimer = setInterval(function () {
+            var messages = Store.getMessages(convId);
+            var hasPending = messages.some(function (m) {
+              return m.senderType === "guard" && m.status === "sent";
+            });
+            var stick = isNearBottom();
+            renderMessages();
+            if (stick) scrollToBottom();
+            if (!hasPending) stopStatusPolling();
+          }, 800);
+        }
+        function stopStatusPolling() {
+          if (statusPollTimer) {
+            clearInterval(statusPollTimer);
+            statusPollTimer = null;
+          }
+        }
+
+        /* =================================================
+         13. More menu — resolve / close / simulate / call
+         ================================================= */
+        function openMoreMenu() {
+          var options = [];
+
+          if (conv.status === "active") {
+            options.push({
+              label: "Mark as Resolved",
+              description: "Issue has been addressed",
+              icon: "✓",
+              action: "resolve",
+            });
+            options.push({
+              label: "Close Conversation",
+              description: "End this conversation",
+              icon: "📁",
+              danger: true,
+              action: "close",
+            });
+            options.push({
+              label: "Simulate resident reply",
+              description: "Demo — test two-way flow",
+              icon: "💬",
+              action: "simulate",
+            });
+          } else {
+            options.push({
+              label: "Simulate resident reply",
+              description: "Demo only — resident can reopen",
+              icon: "💬",
+              action: "simulate",
+            });
+          }
+
+          options.push({
+            label: "Call resident",
+            description: "Voice call (demo)",
+            icon: "📞",
+            action: "call",
+          });
+
+          Sheet.open({
+            title: "Actions",
+            options: options,
+            onSelect: function (opt) {
+              handleAction(opt.action);
+            },
+          });
+        }
+
+        function handleAction(action) {
+          if (action === "resolve") {
+            Confirm.show({
+              title: "Mark as resolved?",
+              body: "This will notify the resident that the issue has been addressed. They can still reply if the issue persists.",
+              confirmLabel: "Mark resolved",
+              onConfirm: function () {
+                Store.setConversationStatus(convId, "resolved");
+                conv = Store.getConversation(convId);
+                renderAll();
+                toast("Conversation marked as resolved", "success");
+              },
+            });
+          } else if (action === "close") {
+            Confirm.show({
+              title: "Close this conversation?",
+              body: "The conversation will be closed. The resident can reopen it if the issue persists.",
+              confirmLabel: "Close conversation",
+              danger: true,
+              onConfirm: function () {
+                Store.setConversationStatus(convId, "closed");
+                conv = Store.getConversation(convId);
+                renderAll();
+                toast("Conversation closed", "success");
+              },
+            });
+          } else if (action === "simulate") {
+            simulateResidentReply();
+          } else if (action === "call") {
+            toast("Calling " + conv.residentName + "… (demo)", "info");
+          }
+        }
+
+        function simulateResidentReply() {
+          var replies = [
+            "Thank you, that helps.",
+            "Please do check once more.",
+            "Noted, thanks for the update.",
+            "The issue is still there, could you take a look?",
+            "Okay, I will wait for your update.",
+          ];
+          Store.sendMessage(convId, {
+            senderType: "resident",
+            senderName: conv.residentName,
+            text: replies[Math.floor(Math.random() * replies.length)],
+            attachments: [],
+          });
+          renderMessages();
+          scrollToBottom();
+          toast("Resident replied (demo)", "success", 1800);
+        }
+
+        /* =================================================
+         14. Full render
+         ================================================= */
+        function renderAll() {
+          renderHeader();
+          renderMessages();
+          renderBanner();
+          renderRoleSwitch();
+          scrollToBottom();
+        }
+
+        /* =================================================
+         15. Event bindings
+         ================================================= */
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", function () {
+            goBack("guard-inbox.html");
+          });
+
+        msgInput.addEventListener("input", function () {
+          msgInput.style.height = "auto";
+          msgInput.style.height = Math.min(msgInput.scrollHeight, 100) + "px";
+          updateComposerState();
+        });
+
+        msgInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (!sendBtn.disabled) sendReply();
+          }
+        });
+
+        sendBtn.addEventListener("click", sendReply);
+        attachBtn.addEventListener("click", openAttachSheet);
+        moreBtn.addEventListener("click", openMoreMenu);
+
+        /* =================================================
+         16. Initialise
+         ================================================= */
+        /* Mark read for guard side */
+        Store.markConversationRead(convId, "guard");
+
+        renderAll();
+        updateComposerState();
+      });
+    </script>
+  </body>
+</html>

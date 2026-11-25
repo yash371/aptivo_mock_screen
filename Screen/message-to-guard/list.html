@@ -1,0 +1,222 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Message to Guard · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <div class="header-title">
+          <h1>Message to Guard</h1>
+          <div class="sub">Priya Sharma · B-402</div>
+        </div>
+        <div class="row gap-xs" id="roleSwitch"></div>
+        <button
+          type="button"
+          class="header-action"
+          id="newBtn"
+          aria-label="New message"
+        >
+          +
+        </button>
+      </header>
+
+      <!-- ============ Content ============ -->
+      <main class="app-content">
+        <!-- Filter tabs -->
+        <div
+          class="segmented"
+          id="tabs"
+          role="tablist"
+          aria-label="Filter conversations"
+        >
+          <button type="button" data-filter="all" class="active" role="tab">
+            All
+          </button>
+          <button type="button" data-filter="active" role="tab">Active</button>
+          <button type="button" data-filter="resolved" role="tab">
+            Resolved
+          </button>
+          <button type="button" data-filter="closed" role="tab">Closed</button>
+        </div>
+
+        <!-- Conversation list -->
+        <div id="list" class="stack stack-sm"></div>
+      </main>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* ---- Role switch (demo navigation) ---- */
+        document.getElementById("roleSwitch").innerHTML = roleLinks(
+          "resident",
+          null,
+        );
+
+        /* ---- New message → recipient selection ---- */
+        document
+          .getElementById("newBtn")
+          .addEventListener("click", function () {
+            navigate("select-guard.html");
+          });
+
+        /* ---- State ---- */
+        var currentFilter = "all";
+        var listEl = document.getElementById("list");
+
+        /* ---- Helpers ---- */
+        function lastPreview(msg) {
+          if (!msg) return "No messages yet";
+          if (msg.text) {
+            var prefix = msg.senderType === "resident" ? "You: " : "";
+            return prefix + msg.text;
+          }
+          if (msg.attachments && msg.attachments.length) {
+            var a = msg.attachments[0];
+            if (a.type === "image")
+              return "📷 Photo" + (a.name ? " · " + a.name : "");
+            return "📄 File" + (a.name ? " · " + a.name : "");
+          }
+          return "No messages yet";
+        }
+
+        function renderCard(conv) {
+          var last = Store.getLastMessage(conv.id);
+          var unread = conv.unreadForResident || 0;
+          var preview = lastPreview(last);
+          var time = last
+            ? relativeTime(last.createdAt)
+            : relativeTime(conv.createdAt);
+          var broadcast = conv.recipientType === "all";
+
+          return (
+            '<button type="button" class="conv-card" data-id="' +
+            escapeHtml(conv.id) +
+            '">' +
+            avatarHTML(conv.guardName, { role: broadcast ? "" : "guard" }) +
+            '<div class="conv-card-body">' +
+            '<div class="conv-card-top">' +
+            '<span class="conv-card-name">' +
+            escapeHtml(conv.guardName) +
+            "</span>" +
+            '<span class="conv-card-time">' +
+            time +
+            "</span>" +
+            "</div>" +
+            '<div class="conv-card-msg">' +
+            escapeHtml(preview) +
+            "</div>" +
+            '<div class="conv-card-bottom">' +
+            convStatusChip(conv.status) +
+            (broadcast ? '<span class="chip warning">All Guards</span>' : "") +
+            (unread > 0
+              ? '<span class="badge-unread">' + unread + "</span>"
+              : "") +
+            "</div>" +
+            "</div>" +
+            "</button>"
+          );
+        }
+
+        function renderEmpty(filter) {
+          var map = {
+            all: {
+              icon: "💬",
+              title: "No conversations yet",
+              desc: "Start a conversation with a security guard to report an issue or ask for help.",
+              cta: "Start a conversation",
+            },
+            active: {
+              icon: "✅",
+              title: "No active conversations",
+              desc: "Ongoing conversations will appear here.",
+            },
+            resolved: {
+              icon: "🟢",
+              title: "No resolved conversations",
+              desc: "Conversations marked resolved by guards will appear here.",
+            },
+            closed: {
+              icon: "📁",
+              title: "No closed conversations",
+              desc: "Closed conversations will appear here.",
+            },
+          };
+          var c = map[filter] || map.all;
+          return (
+            '<div class="empty-state">' +
+            '<div class="empty-icon">' +
+            c.icon +
+            "</div>" +
+            '<h3 class="empty-title">' +
+            c.title +
+            "</h3>" +
+            '<p class="empty-desc">' +
+            c.desc +
+            "</p>" +
+            (c.cta
+              ? '<button type="button" class="btn btn-primary btn-pill" id="emptyCta">' +
+                c.cta +
+                "</button>"
+              : "") +
+            "</div>"
+          );
+        }
+
+        function renderList() {
+          var all = Store.getConversationsForResident(Store.RESIDENT.id);
+          var filtered =
+            currentFilter === "all"
+              ? all
+              : all.filter(function (c) {
+                  return c.status === currentFilter;
+                });
+
+          if (!filtered.length) {
+            listEl.innerHTML = renderEmpty(currentFilter);
+            return;
+          }
+          listEl.innerHTML = filtered.map(renderCard).join("");
+        }
+
+        /* ---- Tab clicks ---- */
+        document.querySelectorAll("#tabs button").forEach(function (btn) {
+          btn.addEventListener("click", function () {
+            document.querySelectorAll("#tabs button").forEach(function (b) {
+              b.classList.remove("active");
+              b.setAttribute("aria-selected", "false");
+            });
+            btn.classList.add("active");
+            btn.setAttribute("aria-selected", "true");
+            currentFilter = btn.dataset.filter;
+            renderList();
+          });
+        });
+
+        /* ---- Delegated taps: open conversation OR empty-state CTA ---- */
+        listEl.addEventListener("click", function (e) {
+          var card = e.target.closest && e.target.closest(".conv-card");
+          if (card && card.dataset.id) {
+            navigate("chat.html?id=" + encodeURIComponent(card.dataset.id));
+            return;
+          }
+          var cta = e.target.closest && e.target.closest("#emptyCta");
+          if (cta) {
+            navigate("select-guard.html");
+          }
+        });
+
+        /* ---- First render ---- */
+        renderList();
+      });
+    </script>
+  </body>
+</html>

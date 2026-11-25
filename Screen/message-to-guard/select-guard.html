@@ -1,0 +1,302 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Select Recipient · Message to Guard · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1>New Message</h1>
+          <div class="sub">Select a recipient</div>
+        </div>
+        <div class="row gap-xs" id="roleSwitch"></div>
+      </header>
+
+      <!-- ============ Content ============ -->
+      <main class="app-content">
+        <p class="overline section-label">Send to</p>
+
+        <div class="stack stack-sm" id="recipientList">
+          <!-- Assigned Gate Guard (default) -->
+          <button
+            type="button"
+            class="recipient-card selected"
+            id="card-assigned"
+            data-type="assigned"
+          >
+            <div class="avatar guard" id="assignedAvatar">RK</div>
+            <div class="recipient-card-body">
+              <div class="recipient-card-title">
+                Assigned Gate Guard
+                <span class="chip primary">Default</span>
+              </div>
+              <div class="recipient-card-desc" id="assignedDesc">
+                Ramesh Kumar · Gate A
+              </div>
+            </div>
+            <span class="recipient-check">✓</span>
+          </button>
+
+          <!-- Selected Guard -->
+          <button
+            type="button"
+            class="recipient-card"
+            id="card-selected"
+            data-type="selected"
+          >
+            <div class="avatar" id="selectedAvatar">?</div>
+            <div class="recipient-card-body">
+              <div class="recipient-card-title">Selected Guard</div>
+              <div class="recipient-card-desc" id="selectedDesc">
+                Choose a specific guard
+              </div>
+            </div>
+            <span class="recipient-check">✓</span>
+          </button>
+
+          <!-- All On-Duty Guards -->
+          <button
+            type="button"
+            class="recipient-card"
+            id="card-all"
+            data-type="all"
+          >
+            <div class="avatar" id="allAvatar">All</div>
+            <div class="recipient-card-body">
+              <div class="recipient-card-title">
+                All On-Duty Guards
+                <span class="chip warning">Emergency</span>
+              </div>
+              <div class="recipient-card-desc" id="allDesc">
+                Contact all guards currently on duty
+              </div>
+            </div>
+            <span class="recipient-check">✓</span>
+          </button>
+        </div>
+
+        <p class="caption text-2 mt-lg" style="padding: 0 4px">
+          Your message will be delivered to the selected guard. Images and files
+          can be attached in the next step.
+        </p>
+      </main>
+
+      <!-- ============ Sticky action bar ============ -->
+      <div class="action-bar">
+        <div class="row-between mb-sm" style="padding: 0 4px">
+          <span class="caption text-2">To</span>
+          <span class="caption" id="summaryLabel" style="font-weight: 600"
+            >Ramesh Kumar · Gate A</span
+          >
+        </div>
+        <button type="button" class="btn btn-primary btn-block" id="startBtn">
+          Start conversation
+        </button>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* ---- Role switch (demo navigation) ---- */
+        document.getElementById("roleSwitch").innerHTML = roleLinks(
+          "resident",
+          null,
+        );
+
+        /* ---- Back ---- */
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", function () {
+            goBack("list.html");
+          });
+
+        /* ---- Data ---- */
+        var guards = Store.getGuards();
+        var assigned = Store.getAssignedGuard() || guards[0];
+        var onDuty = Store.getOnDutyGuards();
+
+        /* ---- State ---- */
+        var state = {
+          type: "assigned",
+          guardId: assigned ? assigned.id : null,
+        };
+
+        /* ---- DOM refs ---- */
+        var cardAssigned = document.getElementById("card-assigned");
+        var cardSelected = document.getElementById("card-selected");
+        var cardAll = document.getElementById("card-all");
+        var assignedDesc = document.getElementById("assignedDesc");
+        var selectedDesc = document.getElementById("selectedDesc");
+        var allDesc = document.getElementById("allDesc");
+        var selectedAvatar = document.getElementById("selectedAvatar");
+        var summaryLabel = document.getElementById("summaryLabel");
+        var startBtn = document.getElementById("startBtn");
+
+        /* ---- Initial static labels ---- */
+        if (assigned) {
+          assignedDesc.textContent = assigned.name + " · " + assigned.gate;
+          document.getElementById("assignedAvatar").textContent = getInitials(
+            assigned.name,
+          );
+        } else {
+          assignedDesc.textContent = "No guard assigned";
+        }
+        allDesc.textContent =
+          "Contact all " + onDuty.length + " guards currently on duty";
+
+        /* ---- Helpers ---- */
+        function getGuardById(id) {
+          return (
+            guards.find(function (g) {
+              return g.id === id;
+            }) || null
+          );
+        }
+
+        function getRecipient() {
+          if (state.type === "assigned") {
+            var g = getGuardById(state.guardId) || assigned;
+            return {
+              type: "assigned",
+              guardId: g ? g.id : null,
+              guardName: g ? g.name : "Assigned Guard",
+              label: g ? g.name + " · " + g.gate : "Assigned Guard",
+            };
+          }
+          if (state.type === "selected") {
+            var sg = getGuardById(state.guardId);
+            if (!sg) return null;
+            return {
+              type: "selected",
+              guardId: sg.id,
+              guardName: sg.name,
+              label: sg.name + " · " + sg.gate,
+            };
+          }
+          return {
+            type: "all",
+            guardId: null,
+            guardName: "All On-Duty Guards",
+            label: "All On-Duty Guards (" + onDuty.length + " on duty)",
+          };
+        }
+
+        function updateUI() {
+          var r = getRecipient();
+
+          /* Selected card highlight */
+          cardAssigned.classList.toggle("selected", state.type === "assigned");
+          cardSelected.classList.toggle("selected", state.type === "selected");
+          cardAll.classList.toggle("selected", state.type === "all");
+
+          /* Selected guard card details */
+          if (state.type === "selected" && r) {
+            var sg = getGuardById(state.guardId);
+            selectedDesc.textContent =
+              sg.name + " · " + sg.gate + (sg.onDuty ? "" : " · Off duty");
+            selectedAvatar.textContent = getInitials(sg.name);
+            selectedAvatar.className = "avatar guard";
+          } else if (state.type === "selected") {
+            selectedDesc.textContent = "Choose a specific guard";
+            selectedAvatar.textContent = "?";
+            selectedAvatar.className = "avatar";
+          } else {
+            var chosen = state.guardId ? getGuardById(state.guardId) : null;
+            if (chosen && state.type !== "assigned") {
+              selectedDesc.textContent = chosen.name + " · " + chosen.gate;
+              selectedAvatar.textContent = getInitials(chosen.name);
+              selectedAvatar.className = "avatar guard";
+            } else {
+              selectedDesc.textContent = "Choose a specific guard";
+              selectedAvatar.textContent = "?";
+              selectedAvatar.className = "avatar";
+            }
+          }
+
+          /* Summary + button */
+          summaryLabel.textContent = r ? r.label : "No recipient selected";
+          startBtn.disabled = !r;
+        }
+
+        /* ---- Guard picker sheet ---- */
+        function openGuardPicker() {
+          var options = guards.map(function (g) {
+            var isAssigned = assigned && g.id === assigned.id;
+            var duty = g.onDuty ? "On duty" : "Off duty";
+            return {
+              label: g.name + (isAssigned ? " (Assigned)" : ""),
+              description: g.gate + " · " + duty,
+              icon:
+                '<span class="avatar sm guard" style="width:32px;height:32px;font-size:12px;">' +
+                getInitials(g.name) +
+                "</span>",
+              guardId: g.id,
+            };
+          });
+
+          Sheet.open({
+            title: "Select Guard",
+            options: options,
+            onSelect: function (opt) {
+              state.type = "selected";
+              state.guardId = opt.guardId;
+              updateUI();
+              var g = getGuardById(opt.guardId);
+              if (g) toast("Selected " + g.name, "success", 1800);
+            },
+          });
+        }
+
+        /* ---- Card clicks ---- */
+        cardAssigned.addEventListener("click", function () {
+          state.type = "assigned";
+          state.guardId = assigned ? assigned.id : null;
+          updateUI();
+        });
+
+        cardSelected.addEventListener("click", function () {
+          openGuardPicker();
+        });
+
+        cardAll.addEventListener("click", function () {
+          state.type = "all";
+          state.guardId = null;
+          updateUI();
+        });
+
+        /* ---- Start conversation ---- */
+        startBtn.addEventListener("click", function () {
+          var r = getRecipient();
+          if (!r) {
+            toast("Please select a recipient", "error");
+            return;
+          }
+          try {
+            sessionStorage.setItem(
+              "aptivo_mg_pending_recipient",
+              JSON.stringify(r),
+            );
+          } catch (e) {
+            /* ignore storage errors */
+          }
+          navigate("chat.html?id=new");
+        });
+
+        /* ---- First render ---- */
+        updateUI();
+      });
+    </script>
+  </body>
+</html>

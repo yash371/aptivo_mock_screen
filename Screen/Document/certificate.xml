@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/css" href="data:text/css,
+  ApprovalCertificate {
+    display: block;
+    font-family: Arial, sans-serif;
+    background-color: #ffffff;
+    border: 4px double #2c3e50;
+    max-width: 550px;
+    margin: 60px auto;
+    padding: 40px;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  }
+  Title {
+    display: block;
+    font-size: 24px;
+    font-weight: bold;
+    color: #2c3e50;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 20px;
+  }
+  Status {
+    display: block;
+    font-size: 22px;
+    font-weight: bold;
+    color: #27ae60;
+    padding: 15px 0;
+    margin: 15px 0;
+    border-top: 1px solid #e0e0e0;
+    border-bottom: 1px solid #e0e0e0;
+  }
+  ApprovalDate {
+    display: block;
+    font-size: 16px;
+    color: #34495e;
+    margin-top: 15px;
+  }
+  ApprovalDate::before {
+    content: 'Approval Date: ';
+    font-weight: bold;
+  }
+  ISODate {
+    display: none;
+  }
+"?>
+<ApprovalCertificate id="CERT-20261122-001">
+    <CertificateDetails>
+        <Title>Certificate of Client Approval</Title>
+        <Status>Approved By Client</Status>
+        <ApprovalDate format="DD/MM/YYYY">22/11/2026</ApprovalDate>
+        <ISODate>2026-11-22</ISODate>
+    </CertificateDetails>
+</ApprovalCertificate>

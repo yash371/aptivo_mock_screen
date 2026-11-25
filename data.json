@@ -22,6 +22,18 @@
                   "description": "More section In User App"
                 }
               ]
+            },
+            {
+              "title": "Security",
+              "type": "folder",
+              "children": [
+                {
+                  "title": "Message to Guard",
+                  "type": "link",
+                  "href": "./Screen/message-to-guard/list.html",
+                  "description": "Message to Guard"
+                }
+              ]
             }
           ]
         }
