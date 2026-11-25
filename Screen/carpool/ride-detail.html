@@ -1,0 +1,891 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Ride Details · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific */
+      .owner-card {
+        display: flex;
+        align-items: center;
+        gap: var(--space-md);
+        padding: var(--space-md);
+        background: var(--color-bg);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-card);
+        margin-bottom: var(--space-md);
+      }
+      .owner-card .owner-info {
+        flex: 1;
+        min-width: 0;
+      }
+      .owner-card .owner-name-lg {
+        font-size: 15px;
+        line-height: 21px;
+        font-weight: 600;
+      }
+      .owner-card .owner-meta-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 3px;
+        flex-wrap: wrap;
+      }
+
+      .route-summary {
+        display: flex;
+        align-items: flex-start;
+        gap: var(--space-sm);
+        padding: 12px 14px;
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        margin-top: var(--space-sm);
+      }
+      .route-summary .rs-body {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .route-summary .rs-point {
+        font-size: 13px;
+        line-height: 18px;
+        font-weight: 500;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .route-summary .rs-point .rp-label {
+        font-size: 10px;
+        color: var(--color-text-2);
+        text-transform: uppercase;
+        letter-spacing: 0.6px;
+        font-weight: 600;
+        margin-bottom: 1px;
+      }
+      .route-summary .rs-stats {
+        text-align: right;
+        flex-shrink: 0;
+      }
+
+      .section-title-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: var(--space-sm);
+        padding: 0 var(--space-xs);
+      }
+      .section-title-row .st-title {
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 1.2px;
+        color: var(--color-text-2);
+      }
+      .section-title-row .st-count {
+        font-size: 11px;
+        font-weight: 600;
+        color: var(--color-text-2);
+      }
+
+      .vehicle-row {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        padding: 12px 14px;
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+      }
+      .vehicle-row .vr-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: var(--radius-pill);
+        background: rgba(0, 122, 255, 0.1);
+        color: var(--color-primary);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+      }
+      .vehicle-row .vr-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .vehicle-row .vr-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--color-text);
+      }
+      .vehicle-row .vr-reg {
+        font-size: 12px;
+        color: var(--color-text-2);
+        margin-top: 1px;
+        font-family: ui-monospace, Menlo, monospace;
+        letter-spacing: 0.3px;
+      }
+
+      .instructions-box {
+        padding: 12px 14px;
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        font-size: 13px;
+        line-height: 20px;
+        color: var(--color-text);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      .contact-note {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 10px 14px;
+        background: var(--color-surface);
+        border-radius: var(--radius-md);
+        font-size: 11px;
+        color: var(--color-text-2);
+        line-height: 16px;
+      }
+
+      .action-bar .btn-edit {
+        flex: 0.7;
+      }
+      .action-bar .btn-primary {
+        flex: 1.3;
+      }
+      .action-bar .btn-block-primary {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1>Ride details</h1>
+          <div class="sub" id="headerSub"></div>
+        </div>
+        <button
+          type="button"
+          class="back-btn"
+          id="menuBtn"
+          style="margin-left: auto"
+          aria-label="More options"
+        >
+          ⋯
+        </button>
+      </header>
+
+      <!-- ============ Content ============ -->
+      <main class="app-content" id="content"></main>
+
+      <!-- ============ Action bar ============ -->
+      <div class="action-bar" id="actionBar"></div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* =========================================================
+           1. Load ride + validate
+           ========================================================= */
+        var viewerId = Store.CURRENT_USER_ID;
+        var rideId = getParam("id");
+        var ride = rideId ? Store.getRide(rideId) : null;
+
+        if (!ride) {
+          toast("Ride not found", "error");
+          setTimeout(function () {
+            goBack("list.html");
+          }, 1000);
+          return;
+        }
+
+        var isOwner = ride.ownerId === viewerId;
+        var booking = getBookingFor(ride, viewerId);
+        var pending = getPendingRequestCount(ride);
+
+        var pickup = getLocationById(ride.pickup);
+        var drop = getLocationById(ride.drop);
+        var distKm = distanceForRide(ride.pickup, ride.drop);
+
+        var contentEl = document.getElementById("content");
+        var actionBarEl = document.getElementById("actionBar");
+        var headerSubEl = document.getElementById("headerSub");
+
+        /* =========================================================
+           2. Helpers
+           ========================================================= */
+        function estimateDurationMin(km) {
+          if (!km) return null;
+          /* ~25 km/h average in city traffic, rounded to nearest 5 min */
+          var mins = Math.max(10, Math.round(((km / 25) * 60) / 5) * 5);
+          return mins;
+        }
+
+        function rideStatusClass() {
+          var s = getRideDisplayStatus(ride, viewerId);
+          return s.class || "available";
+        }
+        function rideStatusLabel() {
+          var s = getRideDisplayStatus(ride, viewerId);
+          return s.label || "Available";
+        }
+
+        function isTerminal() {
+          return ride.status === "cancelled" || ride.status === "completed";
+        }
+
+        function datePassed() {
+          return ride.date + 24 * 60 * 60 * 1000 < Date.now();
+        }
+
+        /* =========================================================
+           3. Header sub
+           ========================================================= */
+        headerSubEl.textContent =
+          (pickup ? pickup.name : "Pickup") +
+          " → " +
+          (drop ? drop.name : "Drop") +
+          " · " +
+          relativeDate(ride.date);
+
+        /* =========================================================
+           4. Status banner (varies by viewer + ride state)
+           ========================================================= */
+        function renderBanner() {
+          /* Owner cancellations/completions first */
+          if (ride.status === "cancelled") {
+            return (
+              '<div class="status-banner danger" style="margin: 0 0 var(--space-md)">' +
+              '<span class="banner-icon">⚠️</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">This ride is cancelled</div>' +
+              '<div class="banner-desc">' +
+              (isOwner
+                ? "You cancelled this ride."
+                : "The owner cancelled this ride.") +
+              "</div></div></div>"
+            );
+          }
+          if (ride.status === "completed") {
+            return (
+              '<div class="status-banner neutral" style="margin: 0 0 var(--space-md)">' +
+              '<span class="banner-icon">✓</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">This ride has been completed</div>' +
+              '<div class="banner-desc">History is retained for both sides.</div>' +
+              "</div></div>"
+            );
+          }
+
+          /* Owner: pending requests */
+          if (isOwner && pending > 0) {
+            return (
+              '<div class="status-banner warning" style="margin: 0 0 var(--space-md)">' +
+              '<span class="banner-icon">🔔</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">' +
+              pending +
+              " pending request" +
+              (pending > 1 ? "s" : "") +
+              "</div>" +
+              '<div class="banner-desc">Review and approve to confirm their seats.</div>' +
+              "</div></div>"
+            );
+          }
+
+          /* Visitor with booking */
+          if (booking && booking.status === "requested") {
+            return (
+              '<div class="status-banner warning" style="margin: 0 0 var(--space-md)">' +
+              '<span class="banner-icon">⏳</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">Your request is pending</div>' +
+              '<div class="banner-desc">The owner will review your request shortly.</div>' +
+              "</div></div>"
+            );
+          }
+          if (booking && booking.status === "confirmed") {
+            return (
+              '<div class="status-banner success" style="margin: 0 0 var(--space-md)">' +
+              '<span class="banner-icon">✓</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">You\'re confirmed for this ride</div>' +
+              '<div class="banner-desc">Be at the pickup point on time.</div>' +
+              "</div></div>"
+            );
+          }
+          if (booking && booking.status === "rejected") {
+            return (
+              '<div class="status-banner danger" style="margin: 0 0 var(--space-md)">' +
+              '<span class="banner-icon">✕</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">Your request was declined</div>' +
+              '<div class="banner-desc">The owner may have filled the seats already.</div>' +
+              "</div></div>"
+            );
+          }
+
+          return "";
+        }
+
+        /* =========================================================
+           5. Owner card
+           ========================================================= */
+        function renderOwnerCard() {
+          var statusClass = rideStatusClass();
+          var statusLabel = rideStatusLabel();
+          var communityName =
+            ride.ownerCommunityName ||
+            (ride.ownerCommunityId
+              ? (Store.getCommunity(ride.ownerCommunityId) || {}).name
+              : null);
+          var showCommunity = ride.scope === "between" && communityName;
+
+          return (
+            '<div class="owner-card">' +
+            avatarHTML(ride.ownerName, { size: "lg", role: "driver" }) +
+            '<div class="owner-info">' +
+            '<div class="owner-name-lg">' +
+            escapeHtml(ride.ownerName) +
+            (isOwner ? " · You" : "") +
+            "</div>" +
+            '<div class="owner-meta-row">' +
+            '<span class="verified-chip">Verified</span>' +
+            (showCommunity
+              ? '<span class="community-badge">' +
+                escapeHtml(communityName) +
+                "</span>"
+              : "") +
+            '<span class="caption text-2">' +
+            escapeHtml(ride.ownerUnit) +
+            "</span>" +
+            "</div>" +
+            "</div>" +
+            '<span class="status-pill ' +
+            statusClass +
+            '">' +
+            escapeHtml(statusLabel) +
+            "</span>" +
+            "</div>"
+          );
+        }
+
+        /* =========================================================
+           6. Map + route summary
+           ========================================================= */
+        function renderMapSection() {
+          if (!pickup || !drop) return "";
+          var durationMin = estimateDurationMin(distKm);
+
+          return (
+            '<div class="map-card">' +
+            renderMapSVG(ride.pickup, ride.drop) +
+            "</div>" +
+            '<div class="route-summary">' +
+            '<div class="route-pins">' +
+            '<span class="route-pin-dot"></span>' +
+            '<span class="route-pin-line"></span>' +
+            '<span class="route-pin-dot end"></span>' +
+            "</div>" +
+            '<div class="rs-body">' +
+            '<div class="rs-point">' +
+            '<div class="rp-label">Pickup</div>' +
+            escapeHtml(pickup.name) +
+            "</div>" +
+            '<div class="rs-point">' +
+            '<div class="rp-label">Drop</div>' +
+            escapeHtml(drop.name) +
+            "</div>" +
+            "</div>" +
+            '<div class="rs-stats">' +
+            '<div class="caption text-2">~' +
+            distKm +
+            " km</div>" +
+            (durationMin
+              ? '<div class="caption text-2">~' + durationMin + " min</div>"
+              : "") +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        /* =========================================================
+           7. Info grid
+           ========================================================= */
+        function renderInfoGrid() {
+          var dateLabel = relativeDate(ride.date);
+          var timeLabel = formatTimeStr(ride.departureTime);
+          var seatLabel = ride.availableSeats + " of " + ride.totalSeats;
+          var costLabel = ride.contribution || "Free";
+
+          return (
+            '<div class="info-grid mb-md">' +
+            '<div class="info-item">' +
+            '<div class="ii-label">Date</div>' +
+            '<div class="ii-value">' +
+            escapeHtml(dateLabel) +
+            "</div>" +
+            '<div class="caption text-2" style="margin-top:2px">' +
+            formatDate(ride.date) +
+            "</div>" +
+            "</div>" +
+            '<div class="info-item">' +
+            '<div class="ii-label">Departure</div>' +
+            '<div class="ii-value">' +
+            escapeHtml(timeLabel) +
+            "</div>" +
+            "</div>" +
+            '<div class="info-item">' +
+            '<div class="ii-label">Seats</div>' +
+            '<div class="ii-value">' +
+            escapeHtml(seatLabel) +
+            "</div>" +
+            "</div>" +
+            '<div class="info-item">' +
+            '<div class="ii-label">Contribution</div>' +
+            '<div class="ii-value" style="color: var(--color-primary)">' +
+            escapeHtml(costLabel) +
+            "</div>" +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        /* =========================================================
+           8. Recurring + vehicle
+           ========================================================= */
+        function renderRecurringChip() {
+          var label = formatRecurringRule(ride.recurring);
+          if (!label) return "";
+          return (
+            '<div class="row gap-sm wrap mb-md">' +
+            '<span class="recurring-chip">' +
+            escapeHtml(label) +
+            "</span>" +
+            "</div>"
+          );
+        }
+
+        function renderVehicle() {
+          return (
+            '<div class="vehicle-row mb-md">' +
+            '<div class="vr-icon">🚗</div>' +
+            '<div class="vr-body">' +
+            '<div class="vr-title">' +
+            escapeHtml(ride.vehicleType || "Vehicle") +
+            "</div>" +
+            '<div class="vr-reg">' +
+            escapeHtml(ride.vehicleReg || "—") +
+            "</div>" +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        /* =========================================================
+           9. Instructions
+           ========================================================= */
+        function renderInstructions() {
+          if (!ride.instructions) return "";
+          return (
+            '<div class="mb-md">' +
+            '<div class="section-title-row"><span class="st-title">Instructions</span></div>' +
+            '<div class="instructions-box">' +
+            escapeHtml(ride.instructions) +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        /* =========================================================
+           10. Contact-privacy note
+           ========================================================= */
+        function renderContactNote() {
+          /* Owner always sees this; passengers see it once booked */
+          var showNote = isOwner || booking;
+          if (!showNote) return "";
+          return (
+            '<div class="contact-note mb-md">' +
+            "<span>🔒</span>" +
+            "<span>Contact is shared only through in-app chat. Phone numbers are hidden for privacy.</span>" +
+            "</div>"
+          );
+        }
+
+        /* =========================================================
+           11. Passengers list
+           ========================================================= */
+        function renderPassengers() {
+          /* Only owner + passengers see this list */
+          if (!isOwner && !booking) return "";
+
+          var all = ride.passengers || [];
+          var visible = isOwner
+            ? all
+            : all.filter(function (p) {
+                return p.status === "confirmed" || p.userId === viewerId;
+              });
+
+          var confirmed = all.filter(function (p) {
+            return p.status === "confirmed";
+          }).length;
+
+          var header =
+            '<div class="section-title-row">' +
+            '<span class="st-title">Passengers</span>' +
+            '<span class="st-count">' +
+            confirmed +
+            " of " +
+            ride.totalSeats +
+            " confirmed</span>" +
+            "</div>";
+
+          if (!visible.length) {
+            return (
+              '<div class="mb-lg">' +
+              header +
+              '<div class="empty-state" style="padding: var(--space-md); border-radius: var(--radius-md); background: var(--color-surface)">' +
+              '<div class="body2 text-2">No passengers yet</div>' +
+              "</div>" +
+              "</div>"
+            );
+          }
+
+          var cards = visible
+            .map(function (p) {
+              var statusMap =
+                BOOKING_STATUS[p.status] || BOOKING_STATUS.requested;
+              var isSelf = p.userId === viewerId;
+              var isRejected = p.status === "rejected";
+              return (
+                '<div class="passenger-card" style="' +
+                (isRejected ? "opacity:0.6;" : "") +
+                '">' +
+                avatarHTML(p.name, { size: "sm", role: "resident" }) +
+                '<div class="pc-body">' +
+                '<div class="pc-name-row">' +
+                '<span class="pc-name">' +
+                escapeHtml(p.name) +
+                (isSelf ? " · You" : "") +
+                "</span>" +
+                '<span class="status-pill ' +
+                statusMap.class +
+                '">' +
+                statusMap.label +
+                "</span>" +
+                "</div>" +
+                '<div class="pc-meta">' +
+                escapeHtml(p.unit) +
+                "</div>" +
+                (p.note
+                  ? '<div class="pc-note">"' + escapeHtml(p.note) + '"</div>'
+                  : "") +
+                "</div>" +
+                "</div>"
+              );
+            })
+            .join("");
+
+          return (
+            '<div class="mb-lg">' +
+            header +
+            '<div class="stack stack-sm">' +
+            cards +
+            "</div></div>"
+          );
+        }
+
+        /* =========================================================
+           12. Full content render
+           ========================================================= */
+        function renderContent() {
+          contentEl.innerHTML =
+            renderBanner() +
+            renderOwnerCard() +
+            renderMapSection() +
+            '<div style="height: var(--space-md)"></div>' +
+            renderInfoGrid() +
+            renderRecurringChip() +
+            renderVehicle() +
+            renderInstructions() +
+            renderContactNote() +
+            renderPassengers() +
+            ` <div class="status-banner neutral" style="margin: 0; margin-top: 20px">
+          <span class="banner-icon">⚠️</span>
+          <div class="banner-body">
+            <div class="banner-title">Disclaimer</div>
+            <div class="banner-desc">
+              Carpooling is entirely voluntary and undertaken at the
+              participants' own risk. Aptivo is only a facilitator and shall not
+              be responsible or liable for any accidents, injuries, damages,
+              losses, or disputes arising from carpool arrangements.
+            </div>
+          </div>
+        </div>`;
+        }
+
+        /* =========================================================
+           13. Action bar (dynamic per role + state)
+           ========================================================= */
+        function renderActionBar() {
+          if (isTerminal()) {
+            actionBarEl.innerHTML = "";
+            actionBarEl.style.display = "none";
+            return;
+          }
+          actionBarEl.style.display = "";
+
+          /* ---- OWNER ---- */
+          if (isOwner) {
+            var manageLabel =
+              pending > 0
+                ? "Manage Requests (" + pending + ")"
+                : "View Passengers";
+            actionBarEl.innerHTML =
+              '<button type="button" class="btn btn-secondary btn-edit" id="editBtn">Edit</button>' +
+              '<button type="button" class="btn btn-primary" id="manageBtn">' +
+              manageLabel +
+              "</button>";
+
+            document
+              .getElementById("editBtn")
+              .addEventListener("click", function () {
+                navigate(
+                  "create.html?id=" +
+                    encodeURIComponent(ride.id) +
+                    "&scope=" +
+                    encodeURIComponent(ride.scope),
+                );
+              });
+            document
+              .getElementById("manageBtn")
+              .addEventListener("click", function () {
+                navigate(
+                  "requests.html?id=" +
+                    encodeURIComponent(ride.id) +
+                    "&scope=" +
+                    encodeURIComponent(ride.scope),
+                );
+              });
+            return;
+          }
+
+          /* ---- VISITOR / PASSENGER ---- */
+          if (booking) {
+            if (booking.status === "rejected") {
+              actionBarEl.innerHTML =
+                '<button type="button" class="btn btn-secondary btn-block-primary" disabled>Request was declined</button>';
+              return;
+            }
+            /* pending or confirmed → chat with owner */
+            actionBarEl.innerHTML =
+              '<button type="button" class="btn btn-primary btn-block-primary" id="chatBtn">💬 Message Owner</button>';
+            document
+              .getElementById("chatBtn")
+              .addEventListener("click", function () {
+                navigate(
+                  "chat.html?rideId=" +
+                    encodeURIComponent(ride.id) +
+                    "&passengerId=" +
+                    encodeURIComponent(viewerId),
+                );
+              });
+            return;
+          }
+
+          if (ride.availableSeats <= 0) {
+            actionBarEl.innerHTML =
+              '<button type="button" class="btn btn-secondary btn-block-primary" disabled>Fully Booked</button>';
+            return;
+          }
+
+          actionBarEl.innerHTML =
+            '<button type="button" class="btn btn-primary btn-block-primary" id="requestBtn">Request to Join</button>';
+
+          document
+            .getElementById("requestBtn")
+            .addEventListener("click", function () {
+              Confirm.show({
+                title: "Request to join?",
+                body: "The owner will be notified. You'll be able to message them once your request is sent.",
+                confirmLabel: "Send Request",
+                cancelLabel: "Cancel",
+                onConfirm: function () {
+                  var res = Store.requestToJoin(ride.id, { note: "" });
+                  if (res.error) {
+                    toast(res.error, "error");
+                    return;
+                  }
+                  toast("Request sent to owner", "success");
+                  /* Re-read ride so banner + action bar reflect the new state */
+                  ride = Store.getRide(ride.id);
+                  booking = getBookingFor(ride, viewerId);
+                  renderContent();
+                  renderActionBar();
+                },
+              });
+            });
+        }
+
+        /* =========================================================
+           14. Context menu (⋯)
+           ========================================================= */
+        function openMenu() {
+          var options = [];
+
+          if (isOwner) {
+            if (!isTerminal()) {
+              options.push({
+                icon: "✏️",
+                label: "Edit ride",
+                description: "Update route, seats or timing",
+              });
+              if (datePassed()) {
+                options.push({
+                  icon: "✓",
+                  label: "Mark as completed",
+                  description: "Close this ride",
+                });
+              }
+              options.push({
+                icon: "✕",
+                label: "Cancel ride",
+                description: "Notify passengers",
+                danger: true,
+              });
+            }
+            options.push({
+              icon: "🔗",
+              label: "Share ride",
+              description: "Copy a shareable link",
+            });
+          } else {
+            options.push({
+              icon: "🔗",
+              label: "Share ride",
+              description: "Copy a shareable link",
+            });
+            options.push({
+              icon: "⚑",
+              label: "Report ride",
+              description: "Flag inappropriate content",
+              danger: true,
+            });
+            options.push({
+              icon: "🚫",
+              label: "Block owner",
+              description: "Hide this person's rides",
+              danger: true,
+            });
+          }
+
+          Sheet.open({
+            title: isOwner ? "Manage ride" : "More options",
+            options: options,
+            onSelect: function (opt) {
+              var label = opt.label;
+
+              if (label === "Edit ride") {
+                navigate(
+                  "create.html?id=" +
+                    encodeURIComponent(ride.id) +
+                    "&scope=" +
+                    encodeURIComponent(ride.scope),
+                );
+                return;
+              }
+              if (label === "Mark as completed") {
+                Confirm.show({
+                  title: "Mark as completed?",
+                  body: "This ride will be closed and marked as completed.",
+                  confirmLabel: "Mark Complete",
+                  onConfirm: function () {
+                    Store.completeRide(ride.id);
+                    toast("Ride marked as completed", "success");
+                    ride = Store.getRide(ride.id);
+                    renderContent();
+                    renderActionBar();
+                  },
+                });
+                return;
+              }
+              if (label === "Cancel ride") {
+                Confirm.show({
+                  title: "Cancel this ride?",
+                  body: "All confirmed passengers will be notified. This cannot be undone.",
+                  confirmLabel: "Cancel Ride",
+                  cancelLabel: "Keep ride",
+                  danger: true,
+                  onConfirm: function () {
+                    Store.cancelRide(ride.id);
+                    toast("Ride cancelled. Passengers notified.", "info");
+                    ride = Store.getRide(ride.id);
+                    renderContent();
+                    renderActionBar();
+                  },
+                });
+                return;
+              }
+              if (label === "Share ride") {
+                toast("Share link copied to clipboard", "success");
+                return;
+              }
+              if (label === "Report ride") {
+                Confirm.show({
+                  title: "Report this ride?",
+                  body: "Our team will review this ride. The owner will not be notified.",
+                  confirmLabel: "Report",
+                  danger: true,
+                  onConfirm: function () {
+                    toast("Ride reported. Thank you.", "success");
+                  },
+                });
+                return;
+              }
+              if (label === "Block owner") {
+                Confirm.show({
+                  title: "Block " + ride.ownerName + "?",
+                  body: "You won't see rides from this person in future. You can unblock from your profile.",
+                  confirmLabel: "Block",
+                  danger: true,
+                  onConfirm: function () {
+                    toast("Blocked " + ride.ownerName, "success");
+                  },
+                });
+              }
+            },
+          });
+        }
+
+        /* =========================================================
+           15. Wire header buttons
+           ========================================================= */
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", function () {
+            goBack("list.html?scope=" + encodeURIComponent(ride.scope));
+          });
+        document.getElementById("menuBtn").addEventListener("click", openMenu);
+
+        /* =========================================================
+           16. First render
+           ========================================================= */
+        renderContent();
+        renderActionBar();
+      });
+    </script>
+  </body>
+</html>

@@ -1,0 +1,1019 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Offer a Ride · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific — tighten section stacking */
+      .section + .section {
+        margin-top: 0;
+      }
+      .section .form-group:last-child {
+        margin-bottom: 0;
+      }
+      /* Map placeholder */
+      .map-empty {
+        padding: 40px 20px;
+        text-align: center;
+        border: 1.5px dashed var(--color-border);
+        background: var(--color-surface);
+      }
+      .map-empty .me-icon {
+        font-size: 36px;
+        margin-bottom: 8px;
+      }
+      /* Saved-vehicle chips row */
+      .saved-vehicles {
+        padding-bottom: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1 id="pageTitle">Offer a Ride</h1>
+          <div class="sub" id="scopeSub"></div>
+        </div>
+      </header>
+
+      <!-- ============ Content ============ -->
+      <main class="app-content" id="content">
+        <!-- ---------- ROUTE ---------- -->
+        <div class="section">
+          <div class="section-label">Route</div>
+          <div id="mapCard"></div>
+          <div class="form-row-2 mt-md">
+            <div class="form-group" style="margin-bottom: 0">
+              <div class="form-label">Pickup <span class="req">*</span></div>
+              <button type="button" class="select-field" id="pickupField">
+                <span class="sel-placeholder" id="pickupText">Select</span>
+                <span class="sel-arrow">›</span>
+              </button>
+              <div class="form-error hidden" id="pickupError"></div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0">
+              <div class="form-label">Drop <span class="req">*</span></div>
+              <button type="button" class="select-field" id="dropField">
+                <span class="sel-placeholder" id="dropText">Select</span>
+                <span class="sel-arrow">›</span>
+              </button>
+              <div class="form-error hidden" id="dropError"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- TRIP DETAILS ---------- -->
+        <div class="section">
+          <div class="section-label">Trip details</div>
+          <div class="form-row-2">
+            <div class="form-group">
+              <div class="form-label">Date <span class="req">*</span></div>
+              <input type="date" class="input" id="dateInput" />
+              <div class="form-error hidden" id="dateError"></div>
+            </div>
+            <div class="form-group">
+              <div class="form-label">
+                Departure time <span class="req">*</span>
+              </div>
+              <input type="time" class="input" id="timeInput" />
+              <div class="form-error hidden" id="timeError"></div>
+            </div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">
+              Seats available <span class="req">*</span>
+            </div>
+            <div class="stepper">
+              <button
+                type="button"
+                class="stepper-btn"
+                id="seatsMinus"
+                aria-label="Decrease seats"
+              >
+                −
+              </button>
+              <div class="stepper-value">
+                <span id="seatsValue">2</span>
+                <span class="stepper-unit">seats</span>
+              </div>
+              <button
+                type="button"
+                class="stepper-btn"
+                id="seatsPlus"
+                aria-label="Increase seats"
+              >
+                +
+              </button>
+            </div>
+            <div class="form-error hidden" id="seatsError"></div>
+          </div>
+        </div>
+
+        <!-- ---------- RECURRING ---------- -->
+        <div class="section">
+          <div class="section-label">Recurring</div>
+          <div class="form-group" style="margin-bottom: 0">
+            <button type="button" class="select-field" id="recurringField">
+              <span id="recurringText">Does not repeat</span>
+              <span class="sel-arrow">›</span>
+            </button>
+            <div class="form-error hidden" id="recurringError"></div>
+          </div>
+          <div
+            id="recurringExtra"
+            class="hidden"
+            style="margin-top: var(--space-md)"
+          >
+            <div class="form-group hidden" id="weekdaySection">
+              <div class="form-label">Days</div>
+              <div class="weekday-row" id="weekdayRow"></div>
+            </div>
+            <div class="form-group" style="margin-bottom: 0">
+              <div class="form-label">End date (optional)</div>
+              <input type="date" class="input" id="endDateInput" />
+            </div>
+          </div>
+        </div>
+
+        <!-- ---------- VEHICLE ---------- -->
+        <div class="section">
+          <div class="section-label">Vehicle</div>
+          <div
+            id="savedVehiclesWrap"
+            class="hidden"
+            style="margin-bottom: var(--space-md)"
+          >
+            <div class="caption text-2" style="margin-bottom: 6px">
+              Quick fill from saved vehicles
+            </div>
+            <div class="filter-chips saved-vehicles" id="savedVehicles"></div>
+          </div>
+          <div class="form-group">
+            <div class="form-label">
+              Vehicle type <span class="req">*</span>
+            </div>
+            <button type="button" class="select-field" id="vehicleTypeField">
+              <span class="sel-placeholder" id="vehicleTypeText"
+                >Select type</span
+              >
+              <span class="sel-arrow">›</span>
+            </button>
+            <div class="form-error hidden" id="vehicleTypeError"></div>
+          </div>
+          <div class="form-group" style="margin-bottom: 0">
+            <div class="form-label">
+              Registration number <span class="req">*</span>
+            </div>
+            <input
+              type="text"
+              class="input"
+              id="vehicleRegInput"
+              placeholder="MH-12-AB-1234"
+              maxlength="15"
+              autocomplete="off"
+              spellcheck="false"
+            />
+            <div class="form-hint">Format: MH-12-AB-1234</div>
+            <div class="form-error hidden" id="vehicleRegError"></div>
+          </div>
+        </div>
+
+        <!-- ---------- CONTRIBUTION ---------- -->
+        <div class="section">
+          <div class="section-label">Cost sharing</div>
+          <div class="switch-row" id="contributionToggle">
+            <div class="flex-1">
+              <div class="switch-label">Expected contribution</div>
+              <div class="switch-sub">Ask passengers to share travel costs</div>
+            </div>
+            <button
+              type="button"
+              class="switch"
+              id="contributionSwitch"
+              aria-label="Toggle contribution"
+            ></button>
+          </div>
+          <div
+            class="form-group hidden"
+            id="contributionField"
+            style="margin-top: var(--space-md); margin-bottom: 0"
+          >
+            <div class="form-label">Amount per seat</div>
+            <input
+              type="text"
+              class="input"
+              id="contributionInput"
+              placeholder="e.g. ₹150"
+            />
+          </div>
+        </div>
+
+        <!-- ---------- INSTRUCTIONS ---------- -->
+        <div class="section">
+          <div class="section-label">Instructions</div>
+          <div class="form-group" style="margin-bottom: 0">
+            <textarea
+              class="input"
+              id="instructionsInput"
+              placeholder="Meet at the main gate by 7:50 AM. No smoking in the car."
+              maxlength="500"
+            ></textarea>
+            <div class="form-hint">
+              <span id="charsLeft">500</span> characters left
+            </div>
+            <div class="form-error hidden" id="instructionsError"></div>
+          </div>
+        </div>
+        <!-- ---------- GUIDELINES ---------- -->
+        <div class="status-banner neutral" style="margin: 0">
+          <span class="banner-icon">ℹ️</span>
+          <div class="banner-body">
+            <div class="banner-title">Guidelines</div>
+            <div class="banner-desc">
+              Only verified residents can offer and join rides. Be on time and
+              keep the vehicle clean.
+            </div>
+          </div>
+        </div>
+        <div class="status-banner neutral" style="margin: 0; margin-top: 20px">
+          <span class="banner-icon">⚠️</span>
+          <div class="banner-body">
+            <div class="banner-title">Disclaimer</div>
+            <div class="banner-desc">
+              Carpooling is entirely voluntary and undertaken at the
+              participants' own risk. Aptivo is only a facilitator and shall not
+              be responsible or liable for any accidents, injuries, damages,
+              losses, or disputes arising from carpool arrangements.
+            </div>
+          </div>
+        </div>
+      </main>
+
+      <!-- ============ Sticky action bar ============ -->
+      <div class="action-bar">
+        <button type="button" class="btn btn-secondary" id="cancelBtn">
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" id="submitBtn">
+          Post Ride
+        </button>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* =========================================================
+           1. Helpers — date <-> input value
+           ========================================================= */
+        function tsToDateInput(ts) {
+          if (!ts) return "";
+          var d = new Date(ts);
+          var y = d.getFullYear();
+          var m = String(d.getMonth() + 1).padStart(2, "0");
+          var day = String(d.getDate()).padStart(2, "0");
+          return y + "-" + m + "-" + day;
+        }
+
+        function dateInputToTs(val) {
+          if (!val) return null;
+          var p = val.split("-");
+          return new Date(
+            parseInt(p[0], 10),
+            parseInt(p[1], 10) - 1,
+            parseInt(p[2], 10),
+          ).getTime();
+        }
+
+        /* =========================================================
+           2. State
+           ========================================================= */
+        var isEdit = !!getParam("id");
+
+        var state = {
+          scope: getParam("scope") === "between" ? "between" : "within",
+          rideId: getParam("id") || null,
+          pickup: null,
+          drop: null,
+          date: tomorrowAt(0, 0),
+          departureTime: "08:00",
+          totalSeats: 2,
+          vehicleType: null,
+          vehicleReg: "",
+          contributionOn: false,
+          contribution: "",
+          instructions: "",
+          recurring: null,
+        };
+
+        /* =========================================================
+           3. Edit-mode — load + guard
+           ========================================================= */
+        if (isEdit) {
+          var existingRide = Store.getRide(state.rideId);
+
+          if (!existingRide) {
+            toast("Ride not found", "error");
+            setTimeout(function () {
+              navigate("list.html?scope=" + state.scope);
+            }, 1200);
+            return;
+          }
+          if (existingRide.ownerId !== Store.CURRENT_USER_ID) {
+            toast("You can only edit your own rides", "error");
+            setTimeout(function () {
+              navigate(
+                "ride-detail.html?id=" +
+                  encodeURIComponent(state.rideId) +
+                  "&scope=" +
+                  encodeURIComponent(existingRide.scope),
+              );
+            }, 1200);
+            return;
+          }
+          if (
+            existingRide.status === "completed" ||
+            existingRide.status === "cancelled"
+          ) {
+            toast("This ride can no longer be edited", "error");
+            setTimeout(function () {
+              navigate(
+                "ride-detail.html?id=" +
+                  encodeURIComponent(state.rideId) +
+                  "&scope=" +
+                  encodeURIComponent(existingRide.scope),
+              );
+            }, 1200);
+            return;
+          }
+
+          /* Populate state from ride */
+          state.scope = existingRide.scope;
+          state.pickup = existingRide.pickup;
+          state.drop = existingRide.drop;
+          state.date = existingRide.date;
+          state.departureTime = existingRide.departureTime;
+          state.totalSeats = existingRide.totalSeats;
+          state.vehicleType = existingRide.vehicleType || null;
+          state.vehicleReg = existingRide.vehicleReg || "";
+          state.contributionOn = !!existingRide.contribution;
+          state.contribution = existingRide.contribution || "";
+          state.instructions = existingRide.instructions || "";
+          state.recurring = existingRide.recurring
+            ? JSON.parse(JSON.stringify(existingRide.recurring))
+            : null;
+
+          document.getElementById("pageTitle").textContent = "Edit Ride";
+          document.getElementById("submitBtn").textContent = "Save Changes";
+        }
+
+        /* =========================================================
+           4. DOM refs + field→error map
+           ========================================================= */
+        var FIELD_MAP = {
+          pickup: { el: "pickupField", err: "pickupError" },
+          drop: { el: "dropField", err: "dropError" },
+          date: { el: "dateInput", err: "dateError" },
+          departureTime: { el: "timeInput", err: "timeError" },
+          totalSeats: { el: null, err: "seatsError" },
+          vehicleType: { el: "vehicleTypeField", err: "vehicleTypeError" },
+          vehicleReg: { el: "vehicleRegInput", err: "vehicleRegError" },
+          instructions: { el: "instructionsInput", err: "instructionsError" },
+          recurring: { el: null, err: "recurringError" },
+        };
+
+        var VEHICLE_TYPES = ["Sedan", "Hatchback", "SUV", "MUV", "Other"];
+
+        var RECURRING_TYPES = [
+          { icon: "—", label: "Does not repeat", value: null },
+          { icon: "📅", label: "Daily", value: "daily" },
+          { icon: "📆", label: "Weekly", value: "weekly" },
+          { icon: "🗓", label: "Selected weekdays", value: "selected" },
+          { icon: "⚙", label: "Custom schedule", value: "custom" },
+        ];
+
+        /* =========================================================
+           5. Error helpers
+           ========================================================= */
+        function showError(key, msg) {
+          var m = FIELD_MAP[key];
+          if (!m) return;
+          var errEl = document.getElementById(m.err);
+          if (errEl) {
+            errEl.textContent = msg;
+            errEl.classList.remove("hidden");
+          }
+          if (m.el) {
+            var el = document.getElementById(m.el);
+            if (el) el.classList.add("error");
+          }
+        }
+
+        function clearError(key) {
+          var m = FIELD_MAP[key];
+          if (!m) return;
+          var errEl = document.getElementById(m.err);
+          if (errEl) errEl.classList.add("hidden");
+          if (m.el) {
+            var el = document.getElementById(m.el);
+            if (el) el.classList.remove("error");
+          }
+        }
+
+        function clearAllErrors() {
+          Object.keys(FIELD_MAP).forEach(clearError);
+        }
+
+        function scrollToFirstError(errors) {
+          var keys = Object.keys(errors);
+          if (!keys.length) return;
+          var m = FIELD_MAP[keys[0]];
+          if (!m) return;
+          var el =
+            document.getElementById(m.el) || document.getElementById(m.err);
+          if (el && el.scrollIntoView) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }
+
+        /* =========================================================
+           6. Sync helpers (state → DOM)
+           ========================================================= */
+        function syncScopeSub() {
+          var el = document.getElementById("scopeSub");
+          if (state.scope === "within") {
+            el.textContent = "Within " + Store.getCurrentCommunity().name;
+          } else {
+            el.textContent = "Between communities";
+          }
+        }
+
+        function syncPickupDrop() {
+          var pText = document.getElementById("pickupText");
+          var dText = document.getElementById("dropText");
+          if (state.pickup) {
+            pText.textContent = getLocationById(state.pickup).name;
+            pText.classList.remove("sel-placeholder");
+          } else {
+            pText.textContent = "Select";
+            pText.classList.add("sel-placeholder");
+          }
+          if (state.drop) {
+            dText.textContent = getLocationById(state.drop).name;
+            dText.classList.remove("sel-placeholder");
+          } else {
+            dText.textContent = "Select";
+            dText.classList.add("sel-placeholder");
+          }
+        }
+
+        function syncDateTime() {
+          document.getElementById("dateInput").value = tsToDateInput(
+            state.date,
+          );
+          document.getElementById("timeInput").value =
+            state.departureTime || "";
+          if (state.date) {
+            document.getElementById("endDateInput").min = tsToDateInput(
+              state.date,
+            );
+          }
+        }
+
+        function syncSeats() {
+          document.getElementById("seatsValue").textContent = state.totalSeats;
+          document.getElementById("seatsMinus").disabled =
+            state.totalSeats <= LIMITS.MIN_SEATS;
+          document.getElementById("seatsPlus").disabled =
+            state.totalSeats >= LIMITS.MAX_SEATS_PER_VEHICLE;
+        }
+
+        function syncVehicle() {
+          var vTypeText = document.getElementById("vehicleTypeText");
+          if (state.vehicleType) {
+            vTypeText.textContent = state.vehicleType;
+            vTypeText.classList.remove("sel-placeholder");
+          } else {
+            vTypeText.textContent = "Select type";
+            vTypeText.classList.add("sel-placeholder");
+          }
+          document.getElementById("vehicleRegInput").value =
+            state.vehicleReg || "";
+        }
+
+        function syncContribution() {
+          var sw = document.getElementById("contributionSwitch");
+          sw.classList.toggle("on", state.contributionOn);
+          document
+            .getElementById("contributionField")
+            .classList.toggle("hidden", !state.contributionOn);
+          document.getElementById("contributionInput").value =
+            state.contribution || "";
+        }
+
+        function syncInstructions() {
+          document.getElementById("instructionsInput").value =
+            state.instructions || "";
+          var left =
+            LIMITS.INSTRUCTIONS_MAX - (state.instructions || "").length;
+          var el = document.getElementById("charsLeft");
+          el.textContent = left;
+          el.style.color = left < 0 ? "var(--color-danger)" : "";
+        }
+
+        function renderWeekdayPicker() {
+          var row = document.getElementById("weekdayRow");
+          var selected = (state.recurring && state.recurring.weekdays) || [];
+          row.innerHTML = [0, 1, 2, 3, 4, 5, 6]
+            .map(function (i) {
+              return (
+                '<button type="button" class="weekday-btn' +
+                (selected.indexOf(i) >= 0 ? " active" : "") +
+                '" data-day="' +
+                i +
+                '">' +
+                WEEKDAY_NAMES[i] +
+                "</button>"
+              );
+            })
+            .join("");
+        }
+
+        function syncRecurring() {
+          var textEl = document.getElementById("recurringText");
+          var extraEl = document.getElementById("recurringExtra");
+          var weekdaySection = document.getElementById("weekdaySection");
+          var endDateInput = document.getElementById("endDateInput");
+
+          if (!state.recurring) {
+            textEl.textContent = "Does not repeat";
+            extraEl.classList.add("hidden");
+            return;
+          }
+
+          /* Show type-only label — the end date is edited in its own field */
+          var label = formatRecurringRule(state.recurring) || "Custom schedule";
+          var untilIdx = label.indexOf(" · until ");
+          if (untilIdx >= 0) label = label.slice(0, untilIdx);
+          textEl.textContent = label;
+
+          extraEl.classList.remove("hidden");
+
+          var showWeekdays =
+            state.recurring.type === "selected" ||
+            state.recurring.type === "custom";
+          weekdaySection.classList.toggle("hidden", !showWeekdays);
+          if (showWeekdays) renderWeekdayPicker();
+
+          endDateInput.value = state.recurring.endDate
+            ? tsToDateInput(state.recurring.endDate)
+            : "";
+        }
+
+        function renderSavedVehicles() {
+          var vehicles = Store.getVehicles(Store.CURRENT_USER_ID);
+          var wrap = document.getElementById("savedVehiclesWrap");
+          var list = document.getElementById("savedVehicles");
+
+          if (!vehicles.length) {
+            wrap.classList.add("hidden");
+            return;
+          }
+
+          wrap.classList.remove("hidden");
+          list.innerHTML = vehicles
+            .map(function (v) {
+              return (
+                '<button type="button" class="filter-chip" data-vehicle-id="' +
+                escapeHtml(v.id) +
+                '">' +
+                escapeHtml(v.model || v.type) +
+                " · " +
+                escapeHtml(v.reg) +
+                "</button>"
+              );
+            })
+            .join("");
+        }
+
+        function renderMapCard() {
+          var container = document.getElementById("mapCard");
+
+          if (state.pickup && state.drop) {
+            var p = getLocationById(state.pickup);
+            var d = getLocationById(state.drop);
+            var dist = distanceForRide(state.pickup, state.drop);
+
+            container.innerHTML =
+              '<div class="map-card map-picker" id="mapPicker">' +
+              renderMapSVG(state.pickup, state.drop) +
+              '<div class="map-overlay-hint">Change route</div>' +
+              "</div>" +
+              '<div class="map-meta">' +
+              '<span class="text-2" style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;min-width:0;">' +
+              escapeHtml(p.name) +
+              " → " +
+              escapeHtml(d.name) +
+              "</span>" +
+              "<strong>~" +
+              dist +
+              " km</strong>" +
+              "</div>";
+
+            document
+              .getElementById("mapPicker")
+              .addEventListener("click", openRoutePicker);
+          } else {
+            container.innerHTML =
+              '<div class="map-card map-empty">' +
+              '<div class="me-icon">🗺️</div>' +
+              '<div class="body2 text-2">Select pickup and drop to preview route</div>' +
+              "</div>";
+          }
+        }
+
+        /* =========================================================
+           7. Sheet pickers
+           ========================================================= */
+        function openRoutePicker() {
+          Sheet.open({
+            title: "Change route",
+            options: [
+              {
+                icon: "🟢",
+                label: "Change pickup",
+                description: state.pickup
+                  ? getLocationById(state.pickup).name
+                  : "Not set",
+              },
+              {
+                icon: "🔴",
+                label: "Change drop",
+                description: state.drop
+                  ? getLocationById(state.drop).name
+                  : "Not set",
+              },
+            ],
+            onSelect: function (opt, idx) {
+              openLocationPicker(idx === 0 ? "pickup" : "drop");
+            },
+          });
+        }
+
+        function openLocationPicker(target) {
+          var options = LOCATIONS.map(function (loc) {
+            return {
+              icon: target === "pickup" ? "🟢" : "🔴",
+              label: loc.name,
+              description: loc.area,
+            };
+          });
+          Sheet.open({
+            title: target === "pickup" ? "Pickup location" : "Drop location",
+            options: options,
+            onSelect: function (opt, idx) {
+              var loc = LOCATIONS[idx];
+              if (target === "pickup") state.pickup = loc.id;
+              else state.drop = loc.id;
+              syncPickupDrop();
+              clearError(target);
+              renderMapCard();
+            },
+          });
+        }
+
+        function openVehicleTypePicker() {
+          Sheet.open({
+            title: "Vehicle type",
+            options: VEHICLE_TYPES.map(function (t) {
+              return { label: t };
+            }),
+            onSelect: function (opt, idx) {
+              state.vehicleType = VEHICLE_TYPES[idx];
+              syncVehicle();
+              clearError("vehicleType");
+            },
+          });
+        }
+
+        function openRecurringPicker() {
+          Sheet.open({
+            title: "Recurring",
+            options: RECURRING_TYPES.map(function (t) {
+              return { icon: t.icon, label: t.label };
+            }),
+            onSelect: function (opt, idx) {
+              var type = RECURRING_TYPES[idx].value;
+              if (!type) {
+                state.recurring = null;
+              } else {
+                var existing = state.recurring || {};
+                state.recurring = {
+                  type: type,
+                  weekdays: existing.weekdays ? existing.weekdays.slice() : [],
+                  endDate: existing.endDate || null,
+                };
+              }
+              syncRecurring();
+              clearError("recurring");
+            },
+          });
+        }
+
+        /* =========================================================
+           8. Interactions
+           ========================================================= */
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", function () {
+            goBack("list.html?scope=" + state.scope);
+          });
+
+        document
+          .getElementById("cancelBtn")
+          .addEventListener("click", function () {
+            goBack("list.html?scope=" + state.scope);
+          });
+
+        document
+          .getElementById("pickupField")
+          .addEventListener("click", function () {
+            openLocationPicker("pickup");
+          });
+
+        document
+          .getElementById("dropField")
+          .addEventListener("click", function () {
+            openLocationPicker("drop");
+          });
+
+        document
+          .getElementById("dateInput")
+          .addEventListener("change", function (e) {
+            state.date = dateInputToTs(e.target.value);
+            document.getElementById("endDateInput").min = e.target.value;
+            clearError("date");
+          });
+
+        document
+          .getElementById("timeInput")
+          .addEventListener("change", function (e) {
+            state.departureTime = e.target.value;
+            clearError("departureTime");
+          });
+
+        document
+          .getElementById("seatsMinus")
+          .addEventListener("click", function () {
+            if (state.totalSeats > LIMITS.MIN_SEATS) {
+              state.totalSeats--;
+              syncSeats();
+              clearError("totalSeats");
+            }
+          });
+
+        document
+          .getElementById("seatsPlus")
+          .addEventListener("click", function () {
+            if (state.totalSeats < LIMITS.MAX_SEATS_PER_VEHICLE) {
+              state.totalSeats++;
+              syncSeats();
+              clearError("totalSeats");
+            }
+          });
+
+        document
+          .getElementById("recurringField")
+          .addEventListener("click", openRecurringPicker);
+
+        document
+          .getElementById("weekdayRow")
+          .addEventListener("click", function (e) {
+            var btn = e.target.closest(".weekday-btn");
+            if (!btn) return;
+            var day = parseInt(btn.dataset.day, 10);
+            if (!state.recurring) return;
+            var idx = state.recurring.weekdays.indexOf(day);
+            if (idx >= 0) state.recurring.weekdays.splice(idx, 1);
+            else state.recurring.weekdays.push(day);
+            renderWeekdayPicker();
+            clearError("recurring");
+          });
+
+        document
+          .getElementById("endDateInput")
+          .addEventListener("change", function (e) {
+            var ts = dateInputToTs(e.target.value);
+            if (!state.recurring) {
+              state.recurring = {
+                type: "daily",
+                weekdays: [],
+                endDate: ts,
+              };
+            } else {
+              state.recurring.endDate = ts;
+            }
+            clearError("recurring");
+          });
+
+        document
+          .getElementById("vehicleTypeField")
+          .addEventListener("click", openVehicleTypePicker);
+
+        document
+          .getElementById("vehicleRegInput")
+          .addEventListener("input", function (e) {
+            state.vehicleReg = e.target.value.toUpperCase();
+            e.target.value = state.vehicleReg;
+            clearError("vehicleReg");
+          });
+
+        document
+          .getElementById("savedVehicles")
+          .addEventListener("click", function (e) {
+            var btn = e.target.closest("button[data-vehicle-id]");
+            if (!btn) return;
+            var vehicles = Store.getVehicles(Store.CURRENT_USER_ID);
+            var v = vehicles.find(function (x) {
+              return x.id === btn.dataset.vehicleId;
+            });
+            if (!v) return;
+            state.vehicleType = v.type;
+            state.vehicleReg = v.reg;
+            syncVehicle();
+            clearError("vehicleType");
+            clearError("vehicleReg");
+            toast("Vehicle filled from saved", "success");
+          });
+
+        document
+          .getElementById("contributionToggle")
+          .addEventListener("click", function () {
+            state.contributionOn = !state.contributionOn;
+            syncContribution();
+          });
+
+        document
+          .getElementById("contributionInput")
+          .addEventListener("input", function (e) {
+            state.contribution = e.target.value;
+          });
+
+        document
+          .getElementById("instructionsInput")
+          .addEventListener("input", function (e) {
+            state.instructions = e.target.value;
+            var left = LIMITS.INSTRUCTIONS_MAX - e.target.value.length;
+            var el = document.getElementById("charsLeft");
+            el.textContent = left;
+            el.style.color = left < 0 ? "var(--color-danger)" : "";
+            clearError("instructions");
+          });
+
+        /* =========================================================
+           9. Submit
+           ========================================================= */
+        document
+          .getElementById("submitBtn")
+          .addEventListener("click", function () {
+            clearAllErrors();
+
+            /* Edit-mode guard: seats can't drop below confirmed passengers */
+            if (isEdit) {
+              var ex = Store.getRide(state.rideId);
+              var confirmedCount = (ex.passengers || []).filter(function (p) {
+                return p.status === "confirmed";
+              }).length;
+              if (state.totalSeats < confirmedCount) {
+                showError(
+                  "totalSeats",
+                  "Cannot reduce below " +
+                    confirmedCount +
+                    " confirmed passenger(s)",
+                );
+                toast(
+                  "Cannot reduce seats below confirmed passengers",
+                  "error",
+                );
+                return;
+              }
+            }
+
+            var form = {
+              pickup: state.pickup,
+              drop: state.drop,
+              date: state.date,
+              departureTime: state.departureTime,
+              totalSeats: state.totalSeats,
+              vehicleType: state.vehicleType,
+              vehicleReg: state.vehicleReg,
+              instructions: state.instructions,
+              recurring: state.recurring,
+            };
+
+            var result = validateRideForm(form);
+
+            if (!result.valid) {
+              Object.keys(result.errors).forEach(function (k) {
+                showError(k, result.errors[k]);
+              });
+              scrollToFirstError(result.errors);
+              toast("Please fix the highlighted fields", "error");
+              return;
+            }
+
+            /* Confirm + persist */
+            Confirm.show({
+              title: isEdit ? "Save changes?" : "Post this ride?",
+              body: isEdit
+                ? "Your passengers will be notified of the updates."
+                : "This ride will be visible to other residents in your scope.",
+              confirmLabel: isEdit ? "Save" : "Post Ride",
+              cancelLabel: "Keep editing",
+              onConfirm: function () {
+                var payload = {
+                  scope: state.scope,
+                  pickup: state.pickup,
+                  drop: state.drop,
+                  date: state.date,
+                  departureTime: state.departureTime,
+                  totalSeats: state.totalSeats,
+                  vehicleType: state.vehicleType,
+                  vehicleReg: state.vehicleReg,
+                  contribution: state.contributionOn
+                    ? state.contribution.trim()
+                    : "",
+                  instructions: state.instructions.trim(),
+                  recurring: state.recurring,
+                };
+
+                if (isEdit) {
+                  var ride = Store.getRide(state.rideId);
+                  var confirmed = (ride.passengers || []).filter(function (p) {
+                    return p.status === "confirmed";
+                  }).length;
+                  payload.availableSeats = Math.max(
+                    0,
+                    state.totalSeats - confirmed,
+                  );
+                  if (payload.availableSeats === 0)
+                    payload.status = "fully-booked";
+                  else if (ride.status === "fully-booked")
+                    payload.status = "available";
+
+                  Store.updateRide(state.rideId, payload);
+                  toast("Ride updated", "success");
+                  setTimeout(function () {
+                    navigate(
+                      "ride-detail.html?id=" +
+                        encodeURIComponent(state.rideId) +
+                        "&scope=" +
+                        encodeURIComponent(state.scope),
+                    );
+                  }, 600);
+                } else {
+                  var newRide = Store.createRide(payload);
+                  toast("Ride posted successfully", "success");
+                  setTimeout(function () {
+                    navigate(
+                      "list.html?scope=" +
+                        encodeURIComponent(state.scope) +
+                        "&tab=offered",
+                    );
+                  }, 600);
+                }
+              },
+            });
+          });
+
+        /* =========================================================
+           10. First render
+           ========================================================= */
+        syncScopeSub();
+        syncPickupDrop();
+        syncDateTime();
+        syncSeats();
+        syncVehicle();
+        syncContribution();
+        syncInstructions();
+        syncRecurring();
+        renderSavedVehicles();
+        renderMapCard();
+
+        /* Set date-input bounds */
+        var todayInputVal = tsToDateInput(todayAt(0, 0));
+        document.getElementById("dateInput").min = todayInputVal;
+      });
+    </script>
+  </body>
+</html>

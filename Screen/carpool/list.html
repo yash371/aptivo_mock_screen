@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Carpool · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific — extra bottom space so the FAB never covers the last card */
+      .app-content {
+        padding-bottom: 100px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1>Carpool</h1>
+          <div class="sub" id="scopeSub"></div>
+        </div>
+      </header>
+
+      <!-- ============ Content ============ -->
+      <main class="app-content">
+        <!-- Scope toggle -->
+        <div
+          class="scope-toggle"
+          id="scopeToggle"
+          role="tablist"
+          aria-label="Carpool scope"
+        >
+          <button type="button" data-scope="within" class="active" role="tab">
+            <span class="scope-icon">🏘</span> Within Community
+          </button>
+          <button type="button" data-scope="between" role="tab">
+            <span class="scope-icon">🌐</span> Between Communities
+          </button>
+        </div>
+
+        <!-- Tabs -->
+        <div
+          class="segmented"
+          id="tabs"
+          role="tablist"
+          aria-label="Carpool views"
+        >
+          <button type="button" data-tab="find" class="active" role="tab">
+            Find Rides
+          </button>
+          <button type="button" data-tab="offered" role="tab">
+            My Offered
+          </button>
+          <button type="button" data-tab="bookings" role="tab">
+            My Bookings
+          </button>
+        </div>
+
+        <!-- Date filter chips -->
+        <div
+          class="filter-chips"
+          id="filters"
+          role="tablist"
+          aria-label="Filter by date"
+        >
+          <button type="button" class="filter-chip active" data-filter="all">
+            All
+          </button>
+          <button type="button" class="filter-chip" data-filter="today">
+            Today
+          </button>
+          <button type="button" class="filter-chip" data-filter="tomorrow">
+            Tomorrow
+          </button>
+          <button type="button" class="filter-chip" data-filter="week">
+            This Week
+          </button>
+        </div>
+
+        <!-- Ride list -->
+        <div id="list" class="stack stack-sm"></div>
+      </main>
+
+      <!-- FAB -->
+      <button type="button" class="fab" id="fab" aria-label="Offer a ride">
+        +
+      </button>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* =================================================
+         1. State from URL
+         ================================================= */
+        var urlScope = getParam("scope");
+        var state = {
+          scope: urlScope === "between" ? "between" : "within",
+          tab: "find",
+          filter: "all",
+        };
+
+        /* =================================================
+         2. DOM refs
+         ================================================= */
+        var backBtn = document.getElementById("backBtn");
+        var scopeSubEl = document.getElementById("scopeSub");
+        var scopeToggle = document.getElementById("scopeToggle");
+        var tabsEl = document.getElementById("tabs");
+        var filtersEl = document.getElementById("filters");
+        var listEl = document.getElementById("list");
+        var fab = document.getElementById("fab");
+
+        /* =================================================
+         3. Header sub — context line
+         ================================================= */
+        function updateScopeSub() {
+          if (state.scope === "within") {
+            scopeSubEl.textContent = Store.getCurrentCommunity().name;
+          } else {
+            scopeSubEl.textContent = "Across participating communities";
+          }
+        }
+
+        function syncScopeButtons() {
+          scopeToggle.querySelectorAll("button").forEach(function (b) {
+            b.classList.toggle("active", b.dataset.scope === state.scope);
+          });
+        }
+
+        /* =================================================
+         4. Data selection (pre-filter)
+         ================================================= */
+        function getTabRides() {
+          var currentId = Store.CURRENT_USER_ID;
+
+          if (state.tab === "find") {
+            return Store.getRidesByScope(state.scope).filter(function (r) {
+              if (r.ownerId === currentId) return false;
+              if (r.status === "cancelled" || r.status === "completed")
+                return false;
+              /* Hide rides where user already has an active booking — they live in My Bookings */
+              if (
+                r.passengers &&
+                r.passengers.some(function (p) {
+                  return p.userId === currentId && p.status !== "rejected";
+                })
+              )
+                return false;
+              return true;
+            });
+          }
+
+          if (state.tab === "offered") {
+            return Store.getRidesOwnedBy(currentId, state.scope);
+          }
+
+          /* bookings */
+          return Store.getRidesBookedBy(currentId, state.scope);
+        }
+
+        function applyFilter(rides) {
+          if (state.filter === "all") return rides;
+          var todayStart = todayAt(0, 0);
+          var tomorrowStart = todayStart + DAY;
+          var weekEnd = todayStart + 7 * DAY;
+
+          return rides.filter(function (r) {
+            if (state.filter === "today")
+              return r.date >= todayStart && r.date < tomorrowStart;
+            if (state.filter === "tomorrow")
+              return r.date >= tomorrowStart && r.date < tomorrowStart + DAY;
+            if (state.filter === "week")
+              return r.date >= todayStart && r.date < weekEnd;
+            return true;
+          });
+        }
+
+        /* =================================================
+         5. Empty state
+         ================================================= */
+        function renderEmpty(hasAnyRides) {
+          /* Filtered-empty state */
+          if (hasAnyRides && state.filter !== "all") {
+            return (
+              '<div class="empty-state">' +
+              '<div class="empty-icon">🔍</div>' +
+              '<h3 class="empty-title">No rides match this filter</h3>' +
+              '<p class="empty-desc">Try a different date range or clear the filter.</p>' +
+              '<button type="button" class="btn btn-secondary btn-pill" id="clearFilter">Clear filter</button>' +
+              "</div>"
+            );
+          }
+
+          /* Per-tab empty states */
+          if (state.tab === "find") {
+            var scopeText =
+              state.scope === "within"
+                ? "your community"
+                : "participating communities";
+            return (
+              '<div class="empty-state">' +
+              '<div class="empty-icon">🚗</div>' +
+              '<h3 class="empty-title">No rides available</h3>' +
+              '<p class="empty-desc">No rides have been shared in ' +
+              scopeText +
+              " yet. Be the first to offer one.</p>" +
+              '<button type="button" class="btn btn-primary btn-pill" id="emptyCta">Offer a ride</button>' +
+              "</div>"
+            );
+          }
+
+          if (state.tab === "offered") {
+            return (
+              '<div class="empty-state">' +
+              '<div class="empty-icon">📤</div>' +
+              '<h3 class="empty-title">You haven\'t offered any rides</h3>' +
+              '<p class="empty-desc">Share your ride and split travel costs with fellow residents.</p>' +
+              '<button type="button" class="btn btn-primary btn-pill" id="emptyCta">Offer a ride</button>' +
+              "</div>"
+            );
+          }
+
+          return (
+            '<div class="empty-state">' +
+            '<div class="empty-icon">🎫</div>' +
+            '<h3 class="empty-title">No ride bookings yet</h3>' +
+            '<p class="empty-desc">Rides you join will appear here. Browse rides to find one that fits your route.</p>' +
+            '<button type="button" class="btn btn-secondary btn-pill" id="switchToFind">Browse rides</button>' +
+            "</div>"
+          );
+        }
+
+        /* =================================================
+         6. Main render
+         ================================================= */
+        function renderList() {
+          updateScopeSub();
+          syncScopeButtons();
+
+          var tabRides = getTabRides();
+          var filtered = applyFilter(tabRides);
+
+          if (!filtered.length) {
+            listEl.innerHTML = renderEmpty(tabRides.length > 0);
+            return;
+          }
+
+          listEl.innerHTML = filtered
+            .map(function (ride) {
+              return renderRideCard(ride, {
+                viewerId: Store.CURRENT_USER_ID,
+                showCommunity: state.scope === "between",
+              });
+            })
+            .join("");
+        }
+
+        /* =================================================
+         7. Back
+         ================================================= */
+        backBtn.addEventListener("click", function () {
+          if (window.history.length > 1) window.history.back();
+          else toast("Carpool opens standalone in this demo", "info");
+        });
+
+        /* =================================================
+         8. Scope toggle
+         ================================================= */
+        scopeToggle.addEventListener("click", function (e) {
+          var btn = e.target.closest("button[data-scope]");
+          if (!btn || btn.dataset.scope === state.scope) return;
+          state.scope = btn.dataset.scope;
+
+          /* Persist in URL */
+          var url = new URL(window.location.href);
+          url.searchParams.set("scope", state.scope);
+          history.replaceState(null, "", url.toString());
+
+          renderList();
+        });
+
+        /* =================================================
+         9. Tabs
+         ================================================= */
+        tabsEl.addEventListener("click", function (e) {
+          var btn = e.target.closest("button[data-tab]");
+          if (!btn) return;
+          state.tab = btn.dataset.tab;
+          tabsEl.querySelectorAll("button").forEach(function (b) {
+            b.classList.toggle("active", b.dataset.tab === state.tab);
+          });
+          renderList();
+        });
+
+        /* =================================================
+         10. Filters
+         ================================================= */
+        filtersEl.addEventListener("click", function (e) {
+          var btn = e.target.closest("button[data-filter]");
+          if (!btn) return;
+          state.filter = btn.dataset.filter;
+          filtersEl.querySelectorAll("button").forEach(function (b) {
+            b.classList.toggle("active", b.dataset.filter === state.filter);
+          });
+          renderList();
+        });
+
+        /* =================================================
+         11. List interactions (card tap + empty CTAs)
+         ================================================= */
+        listEl.addEventListener("click", function (e) {
+          var card = e.target.closest(".ride-card");
+          if (card && card.dataset.id) {
+            navigate(
+              "ride-detail.html?id=" +
+                encodeURIComponent(card.dataset.id) +
+                "&scope=" +
+                encodeURIComponent(state.scope),
+            );
+            return;
+          }
+
+          if (e.target.closest("#clearFilter")) {
+            state.filter = "all";
+            filtersEl.querySelectorAll("button").forEach(function (b) {
+              b.classList.toggle("active", b.dataset.filter === "all");
+            });
+            renderList();
+            return;
+          }
+
+          if (e.target.closest("#emptyCta")) {
+            navigate("create.html?scope=" + encodeURIComponent(state.scope));
+            return;
+          }
+
+          if (e.target.closest("#switchToFind")) {
+            state.tab = "find";
+            tabsEl.querySelectorAll("button").forEach(function (b) {
+              b.classList.toggle("active", b.dataset.tab === "find");
+            });
+            renderList();
+          }
+        });
+
+        /* =================================================
+         12. FAB → create
+         ================================================= */
+        fab.addEventListener("click", function () {
+          navigate("create.html?scope=" + encodeURIComponent(state.scope));
+        });
+
+        /* =================================================
+         13. First render
+         ================================================= */
+        renderList();
+      });
+    </script>
+  </body>
+</html>

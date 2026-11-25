@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Join Requests · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific */
+      .chat-msg-preview {
+        display: flex;
+        align-items: flex-start;
+        gap: 6px;
+        margin-top: 6px;
+        padding: 8px 10px;
+        background: rgba(0, 122, 255, 0.06);
+        border-radius: var(--radius-sm);
+        font-size: 12px;
+        line-height: 17px;
+        color: var(--color-text);
+      }
+      .chat-msg-preview .cmp-icon {
+        flex-shrink: 0;
+        font-size: 12px;
+        line-height: 17px;
+      }
+      .chat-msg-preview .cmp-text {
+        flex: 1;
+        min-width: 0;
+        overflow: hidden;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+      }
+      .chat-msg-preview .cmp-from {
+        color: var(--color-text-2);
+        font-size: 11px;
+        font-weight: 600;
+        margin-right: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1>Join requests</h1>
+          <div class="sub" id="headerSub"></div>
+        </div>
+      </header>
+
+      <!-- ============ Content ============ -->
+      <main class="app-content" id="content"></main>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* =========================================================
+           1. Load ride + guard (owner only)
+           ========================================================= */
+        var viewerId = Store.CURRENT_USER_ID;
+        var rideId = getParam("id");
+        var ride = rideId ? Store.getRide(rideId) : null;
+
+        if (!ride) {
+          toast("Ride not found", "error");
+          setTimeout(function () {
+            goBack("list.html");
+          }, 1000);
+          return;
+        }
+
+        if (ride.ownerId !== viewerId) {
+          toast("Only the ride owner can manage requests", "error");
+          setTimeout(function () {
+            navigate(
+              "ride-detail.html?id=" +
+                encodeURIComponent(ride.id) +
+                "&scope=" +
+                encodeURIComponent(ride.scope),
+            );
+          }, 1200);
+          return;
+        }
+
+        var contentEl = document.getElementById("content");
+        var headerSubEl = document.getElementById("headerSub");
+
+        /* =========================================================
+           2. Helpers
+           ========================================================= */
+        function getLastChatMsg(passengerId) {
+          var chat = Store.getChat(ride.id, passengerId);
+          if (!chat || !chat.messages || !chat.messages.length) return null;
+          return chat.messages[chat.messages.length - 1];
+        }
+
+        function isTerminalRide() {
+          return ride.status === "cancelled" || ride.status === "completed";
+        }
+
+        /* =========================================================
+           3. Card renderers
+           ========================================================= */
+        function requestCardHTML(p, canAct) {
+          var lastMsg = getLastChatMsg(p.userId);
+          var fromName = "";
+          if (lastMsg) {
+            if (lastMsg.fromId === p.userId) fromName = p.name;
+            else if (lastMsg.fromId === ride.ownerId) fromName = "You";
+            else fromName = "Someone";
+          }
+
+          var seatsFull = ride.availableSeats <= 0;
+          var canAccept = canAct && !seatsFull;
+
+          var actionsHTML = "";
+          if (canAct) {
+            actionsHTML =
+              '<div class="request-actions">' +
+              '<button type="button" class="btn btn-secondary btn-sm" data-reject="' +
+              escapeHtml(p.userId) +
+              '">Decline</button>' +
+              '<button type="button" class="btn btn-success btn-sm" data-accept="' +
+              escapeHtml(p.userId) +
+              '"' +
+              (canAccept ? "" : " disabled") +
+              ">" +
+              (canAccept ? "Accept" : "No seats") +
+              "</button>" +
+              "</div>";
+          }
+
+          return (
+            '<div class="request-card">' +
+            avatarHTML(p.name, { size: "sm", role: "resident" }) +
+            '<div class="pc-body">' +
+            '<div class="pc-name-row">' +
+            '<span class="pc-name">' +
+            escapeHtml(p.name) +
+            "</span>" +
+            '<span class="status-pill requested">Requested</span>' +
+            "</div>" +
+            '<div class="pc-meta">' +
+            escapeHtml(p.unit) +
+            " · " +
+            relativeTime(p.requestedAt) +
+            "</div>" +
+            (p.note
+              ? '<div class="pc-note">"' + escapeHtml(p.note) + '"</div>'
+              : "") +
+            (lastMsg
+              ? '<div class="chat-msg-preview">' +
+                '<span class="cmp-icon">💬</span>' +
+                '<span class="cmp-text">' +
+                '<span class="cmp-from">' +
+                escapeHtml(fromName) +
+                ":</span> " +
+                escapeHtml(lastMsg.text) +
+                "</span>" +
+                "</div>"
+              : "") +
+            actionsHTML +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        function confirmedCardHTML(p) {
+          return (
+            '<div class="passenger-card">' +
+            avatarHTML(p.name, { size: "sm", role: "resident" }) +
+            '<div class="pc-body">' +
+            '<div class="pc-name-row">' +
+            '<span class="pc-name">' +
+            escapeHtml(p.name) +
+            "</span>" +
+            '<span class="status-pill confirmed">Confirmed</span>' +
+            "</div>" +
+            '<div class="pc-meta">' +
+            escapeHtml(p.unit) +
+            "</div>" +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        function rejectedCardHTML(p) {
+          return (
+            '<div class="passenger-card" style="opacity:0.65;">' +
+            avatarHTML(p.name, { size: "sm", role: "neutral" }) +
+            '<div class="pc-body">' +
+            '<div class="pc-name-row">' +
+            '<span class="pc-name">' +
+            escapeHtml(p.name) +
+            "</span>" +
+            '<span class="status-pill cancelled">Declined</span>' +
+            "</div>" +
+            '<div class="pc-meta">' +
+            escapeHtml(p.unit) +
+            "</div>" +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        /* =========================================================
+           4. Main render
+           ========================================================= */
+        function render() {
+          var all = (ride.passengers || []).filter(function (p) {
+            return p.userId !== ride.ownerId;
+          });
+          var pending = all.filter(function (p) {
+            return p.status === "requested";
+          });
+          var confirmed = all.filter(function (p) {
+            return p.status === "confirmed";
+          });
+          var rejected = all.filter(function (p) {
+            return p.status === "rejected";
+          });
+          var terminal = isTerminalRide();
+
+          /* Header sub — at-a-glance ride reference */
+          headerSubEl.textContent =
+            pending.length +
+            " pending · " +
+            relativeDate(ride.date) +
+            " · " +
+            ride.availableSeats +
+            " of " +
+            ride.totalSeats +
+            " seats";
+
+          var html = "";
+
+          /* ---- Terminal banner ---- */
+          if (terminal) {
+            html +=
+              '<div class="status-banner ' +
+              (ride.status === "cancelled" ? "danger" : "neutral") +
+              '" style="margin:0 0 var(--space-md)">' +
+              '<span class="banner-icon">' +
+              (ride.status === "cancelled" ? "⚠️" : "✓") +
+              "</span>" +
+              '<div class="banner-body">' +
+              '<div class="banner-title">This ride is ' +
+              ride.status +
+              "</div>" +
+              '<div class="banner-desc">Requests can no longer be actioned.</div>' +
+              "</div></div>";
+          }
+
+          /* ---- Pending section ---- */
+          if (pending.length) {
+            html += '<div class="section">';
+            html +=
+              '<div class="section-label">' +
+              "<span>Pending requests</span>" +
+              '<span class="count-badge">' +
+              pending.length +
+              "</span>" +
+              "</div>";
+
+            if (ride.availableSeats <= 0 && !terminal) {
+              html +=
+                '<div class="status-banner warning" style="margin:0 0 var(--space-sm)">' +
+                '<span class="banner-icon">ℹ️</span>' +
+                '<div class="banner-body">' +
+                '<div class="banner-title">No seats available</div>' +
+                '<div class="banner-desc">Decline requests or edit the ride to add seats.</div>' +
+                "</div></div>";
+            }
+
+            html += '<div class="stack stack-sm">';
+            html += pending
+              .map(function (p) {
+                return requestCardHTML(p, !terminal);
+              })
+              .join("");
+            html += "</div></div>";
+          } else if (!confirmed.length && !rejected.length) {
+            /* Completely empty — no requests at all */
+            html +=
+              '<div class="empty-state">' +
+              '<div class="empty-icon">📬</div>' +
+              '<h3 class="empty-title">No requests yet</h3>' +
+              '<p class="empty-desc">When residents request to join your ride, they\'ll appear here for you to review.</p>' +
+              '<button type="button" class="btn btn-secondary btn-pill" id="backToRide">Back to ride</button>' +
+              "</div>";
+          } else {
+            /* All caught up */
+            html +=
+              '<div class="status-banner success" style="margin:0 0 var(--space-md)">' +
+              '<span class="banner-icon">✓</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">All caught up</div>' +
+              '<div class="banner-desc">No pending requests on this ride.</div>' +
+              "</div></div>";
+          }
+
+          /* ---- Confirmed section ---- */
+          if (confirmed.length) {
+            html += '<div class="section">';
+            html +=
+              '<div class="section-label">' +
+              "<span>Confirmed</span>" +
+              '<span class="count-badge">' +
+              confirmed.length +
+              "</span>" +
+              "</div>";
+            html += '<div class="stack stack-sm">';
+            html += confirmed.map(confirmedCardHTML).join("");
+            html += "</div></div>";
+          }
+
+          /* ---- Declined section ---- */
+          if (rejected.length) {
+            html += '<div class="section">';
+            html +=
+              '<div class="section-label">' +
+              "<span>Declined</span>" +
+              '<span class="count-badge">' +
+              rejected.length +
+              "</span>" +
+              "</div>";
+            html += '<div class="stack stack-sm">';
+            html += rejected.map(rejectedCardHTML).join("");
+            html += "</div></div>";
+          }
+
+          contentEl.innerHTML = html;
+        }
+
+        /* =========================================================
+           5. Actions
+           ========================================================= */
+        function handleAccept(passengerId) {
+          var res = Store.respondToRequest(ride.id, passengerId, "accept");
+          if (res.error) {
+            toast(res.error, "error");
+            return;
+          }
+          var name = res.passenger.name;
+          ride = Store.getRide(ride.id);
+          var fullyBooked = ride.availableSeats === 0;
+          toast(
+            name +
+              " confirmed" +
+              (fullyBooked
+                ? " · ride is now fully booked"
+                : " · 1 seat allocated"),
+            "success",
+          );
+          render();
+        }
+
+        function handleReject(passengerId) {
+          var p = (ride.passengers || []).find(function (x) {
+            return x.userId === passengerId;
+          });
+          if (!p) return;
+
+          Confirm.show({
+            title: "Decline " + p.name + "'s request?",
+            body: "They won't be able to join this ride. This can't be undone.",
+            confirmLabel: "Decline",
+            cancelLabel: "Cancel",
+            danger: true,
+            onConfirm: function () {
+              var res = Store.respondToRequest(ride.id, passengerId, "reject");
+              if (res.error) {
+                toast(res.error, "error");
+                return;
+              }
+              ride = Store.getRide(ride.id);
+              toast("Request declined", "info");
+              render();
+            },
+          });
+        }
+
+        /* =========================================================
+           6. Wire interactions
+           ========================================================= */
+        document
+          .getElementById("backBtn")
+          .addEventListener("click", function () {
+            goBack(
+              "ride-detail.html?id=" +
+                encodeURIComponent(ride.id) +
+                "&scope=" +
+                encodeURIComponent(ride.scope),
+            );
+          });
+
+        contentEl.addEventListener("click", function (e) {
+          var acceptBtn = e.target.closest("[data-accept]");
+          if (acceptBtn && !acceptBtn.disabled) {
+            handleAccept(acceptBtn.dataset.accept);
+            return;
+          }
+
+          var rejectBtn = e.target.closest("[data-reject]");
+          if (rejectBtn) {
+            handleReject(rejectBtn.dataset.reject);
+            return;
+          }
+
+          if (e.target.closest("#backToRide")) {
+            navigate(
+              "ride-detail.html?id=" +
+                encodeURIComponent(ride.id) +
+                "&scope=" +
+                encodeURIComponent(ride.scope),
+            );
+          }
+        });
+
+        /* =========================================================
+           7. First render
+           ========================================================= */
+        render();
+      });
+    </script>
+  </body>
+</html>

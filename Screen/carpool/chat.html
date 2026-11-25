@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover"
+    />
+    <title>Chat · Aptivo</title>
+    <link rel="stylesheet" href="common.css" />
+    <script src="common.js" defer></script>
+    <style>
+      /* Screen-specific */
+      .context-strip.clickable {
+        cursor: pointer;
+        transition: background 0.15s;
+      }
+      .context-strip.clickable:hover {
+        background: var(--color-surface-alt);
+      }
+      .context-strip .cs-chevron {
+        color: var(--color-text-2);
+        font-size: 16px;
+        flex-shrink: 0;
+        line-height: 1;
+      }
+
+      /* Contact-share bubble */
+      .contact-row {
+        display: flex;
+        max-width: 85%;
+      }
+      .contact-row.outgoing {
+        align-self: flex-end;
+      }
+      .contact-row.incoming {
+        align-self: flex-start;
+      }
+      .contact-bubble {
+        display: flex;
+        align-items: center;
+        gap: var(--space-sm);
+        padding: 10px 13px;
+        border-radius: var(--radius-lg);
+        background: rgba(0, 122, 255, 0.08);
+        border: 1px solid rgba(0, 122, 255, 0.22);
+        min-width: 0;
+      }
+      .contact-bubble .cb-icon {
+        width: 30px;
+        height: 30px;
+        border-radius: var(--radius-pill);
+        background: var(--color-primary);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+      }
+      .contact-bubble .cb-body {
+        flex: 1;
+        min-width: 0;
+      }
+      .contact-bubble .cb-label {
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.8px;
+        font-weight: 600;
+        color: var(--color-primary);
+        margin-bottom: 1px;
+      }
+      .contact-bubble .cb-phone {
+        font-size: 13px;
+        line-height: 18px;
+        font-weight: 600;
+        color: var(--color-text);
+        font-family: ui-monospace, Menlo, monospace;
+        letter-spacing: 0.3px;
+        white-space: nowrap;
+      }
+      .contact-bubble .cb-time {
+        font-size: 10px;
+        color: var(--color-text-2);
+        margin-top: 2px;
+      }
+
+      /* Chat area hint (when empty) */
+      .chat-privacy-hint {
+        font-size: 11px;
+        line-height: 16px;
+        color: var(--color-text-2);
+        text-align: center;
+        padding: var(--space-sm) var(--space-md);
+        max-width: 280px;
+        margin: 0 auto var(--space-md);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="app-shell">
+      <!-- ============ Header ============ -->
+      <header class="app-header">
+        <button type="button" class="back-btn" id="backBtn" aria-label="Back">
+          ←
+        </button>
+        <div class="header-title">
+          <h1 id="headerName">Chat</h1>
+          <div class="sub" id="headerSub"></div>
+        </div>
+        <button
+          type="button"
+          class="back-btn"
+          id="menuBtn"
+          aria-label="More options"
+        >
+          ⋯
+        </button>
+      </header>
+
+      <!-- ============ Ride context strip ============ -->
+      <div class="context-strip clickable" id="contextStrip"></div>
+
+      <!-- ============ Chat scroll ============ -->
+      <div class="chat-scroll" id="chatScroll">
+        <div class="chat-list" id="chatList"></div>
+      </div>
+
+      <!-- ============ Composer ============ -->
+      <div class="composer">
+        <div class="composer-input-wrap">
+          <textarea
+            class="composer-input"
+            id="composerInput"
+            placeholder="Message…"
+            rows="1"
+          ></textarea>
+        </div>
+        <button
+          type="button"
+          class="send-btn"
+          id="sendBtn"
+          aria-label="Send message"
+          disabled
+        >
+          ↑
+        </button>
+      </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", function () {
+        /* =========================================================
+           1. Resolve participants + guards
+           ========================================================= */
+        var viewerId = Store.CURRENT_USER_ID;
+        var rideId = getParam("rideId");
+        var passengerIdParam = getParam("passengerId");
+
+        var ride = rideId ? Store.getRide(rideId) : null;
+
+        if (!ride) {
+          toast("Chat not found", "error");
+          setTimeout(function () {
+            goBack("list.html");
+          }, 1000);
+          return;
+        }
+
+        var isOwner = ride.ownerId === viewerId;
+        var passengerId;
+        var otherPartyId;
+
+        if (isOwner) {
+          passengerId = passengerIdParam;
+          var onRide = (ride.passengers || []).some(function (p) {
+            return p.userId === passengerId;
+          });
+          if (!onRide) {
+            toast("Passenger not found on this ride", "error");
+            setTimeout(function () {
+              navigate(
+                "ride-detail.html?id=" +
+                  encodeURIComponent(ride.id) +
+                  "&scope=" +
+                  encodeURIComponent(ride.scope),
+              );
+            }, 1200);
+            return;
+          }
+          otherPartyId = passengerId;
+        } else {
+          passengerId = viewerId;
+          var selfBooked = (ride.passengers || []).some(function (p) {
+            return p.userId === viewerId;
+          });
+          if (!selfBooked) {
+            toast("You haven't joined this ride yet", "error");
+            setTimeout(function () {
+              navigate(
+                "ride-detail.html?id=" +
+                  encodeURIComponent(ride.id) +
+                  "&scope=" +
+                  encodeURIComponent(ride.scope),
+              );
+            }, 1200);
+            return;
+          }
+          otherPartyId = ride.ownerId;
+        }
+
+        var otherMember = Store.getMember(otherPartyId);
+        var passengerRecord = (ride.passengers || []).find(function (p) {
+          return p.userId === passengerId;
+        });
+        var isRejected =
+          passengerRecord && passengerRecord.status === "rejected";
+
+        /* =========================================================
+           2. DOM refs
+           ========================================================= */
+        var backBtn = document.getElementById("backBtn");
+        var menuBtn = document.getElementById("menuBtn");
+        var headerNameEl = document.getElementById("headerName");
+        var headerSubEl = document.getElementById("headerSub");
+        var contextStripEl = document.getElementById("contextStrip");
+        var chatScrollEl = document.getElementById("chatScroll");
+        var chatListEl = document.getElementById("chatList");
+        var composerInput = document.getElementById("composerInput");
+        var sendBtn = document.getElementById("sendBtn");
+
+        var PHONE_MARKER = "__PHONE__";
+
+        /* =========================================================
+           3. Contact masking helpers
+           ========================================================= */
+        function getPhone(memberId) {
+          var map = {
+            res_1: "+91 98220 12345",
+            res_2: "+91 98765 43210",
+            res_3: "+91 97654 32109",
+            res_4: "+91 96543 21098",
+            res_5: "+91 95432 10987",
+            res_ext_1: "+91 94321 09876",
+            res_ext_2: "+91 93210 98765",
+          };
+          return map[memberId] || "+91 90000 00000";
+        }
+
+        function maskPhone(phone) {
+          var digits = phone.replace(/\D/g, "");
+          var country = digits.slice(0, 2);
+          var rest = digits.slice(2);
+          return (
+            "+" + country + " " + rest.slice(0, 2) + "••• •••" + rest.slice(-2)
+          );
+        }
+
+        /* =========================================================
+           4. Header + context strip
+           ========================================================= */
+        headerNameEl.textContent = otherMember ? otherMember.name : "Chat";
+        headerSubEl.textContent = otherMember
+          ? otherMember.unit + " · " + (isOwner ? "Passenger" : "Ride owner")
+          : "";
+
+        (function renderContext() {
+          var p = getLocationById(ride.pickup);
+          var d = getLocationById(ride.drop);
+          var statusMap = RIDE_STATUS[ride.status] || RIDE_STATUS.available;
+          var timeLabel = formatTimeStr(ride.departureTime);
+
+          contextStripEl.innerHTML =
+            '<span class="cs-icon">🚗</span>' +
+            '<div class="cs-body">' +
+            '<div class="cs-title">' +
+            escapeHtml(p ? p.name : "Pickup") +
+            " → " +
+            escapeHtml(d ? d.name : "Drop") +
+            "</div>" +
+            '<div class="cs-meta">' +
+            escapeHtml(relativeDate(ride.date)) +
+            " · " +
+            escapeHtml(timeLabel) +
+            " · " +
+            escapeHtml(statusMap.label) +
+            "</div>" +
+            "</div>" +
+            '<span class="cs-chevron">›</span>';
+        })();
+
+        contextStripEl.addEventListener("click", function () {
+          navigate(
+            "ride-detail.html?id=" +
+              encodeURIComponent(ride.id) +
+              "&scope=" +
+              encodeURIComponent(ride.scope),
+          );
+        });
+
+        /* =========================================================
+           5. Render messages
+           ========================================================= */
+        function formatDivider(ts) {
+          var d = new Date(ts);
+          var today = new Date();
+          today.setHours(0, 0, 0, 0);
+          var dDay = new Date(d);
+          dDay.setHours(0, 0, 0, 0);
+          var diff = Math.round((dDay - today) / (24 * 60 * 60 * 1000));
+          if (diff === 0) return "Today";
+          if (diff === -1) return "Yesterday";
+          return formatDate(ts);
+        }
+
+        function renderBubble(msg) {
+          var outgoing = msg.fromId === viewerId;
+          var cls = outgoing ? "outgoing" : "incoming";
+
+          /* Contact-share bubble */
+          if (msg.text && msg.text.indexOf(PHONE_MARKER) === 0) {
+            var phone = msg.text.slice(PHONE_MARKER.length);
+            return (
+              '<div class="contact-row ' +
+              cls +
+              '">' +
+              '<div class="contact-bubble">' +
+              '<div class="cb-icon">📞</div>' +
+              '<div class="cb-body">' +
+              '<div class="cb-label">' +
+              (outgoing ? "You shared" : "Contact shared") +
+              "</div>" +
+              '<div class="cb-phone">' +
+              escapeHtml(phone) +
+              "</div>" +
+              '<div class="cb-time">' +
+              formatTime(msg.createdAt) +
+              "</div>" +
+              "</div>" +
+              "</div>" +
+              "</div>"
+            );
+          }
+
+          /* Regular bubble */
+          return (
+            '<div class="msg-row ' +
+            cls +
+            '">' +
+            '<div class="bubble ' +
+            cls +
+            '">' +
+            escapeHtml(msg.text) +
+            '<div class="msg-time">' +
+            formatTime(msg.createdAt) +
+            "</div>" +
+            "</div>" +
+            "</div>"
+          );
+        }
+
+        function renderEmpty() {
+          return (
+            '<div class="empty-state">' +
+            '<div class="empty-icon">💬</div>' +
+            '<h3 class="empty-title">Start the conversation</h3>' +
+            '<p class="empty-desc">' +
+            (isOwner
+              ? "Say hello, confirm pickup details, or clarify luggage."
+              : "Ask about pickup, luggage, or timing. The owner will be notified.") +
+            "</p>" +
+            "</div>" +
+            '<div class="chat-privacy-hint">' +
+            "Phone numbers stay hidden. Use Share contact from the menu if you'd like to share yours." +
+            "</div>"
+          );
+        }
+
+        function renderMessages(scrollAfter) {
+          var chat = Store.getChat(ride.id, passengerId);
+          var messages = (chat && chat.messages) || [];
+
+          if (!messages.length) {
+            chatListEl.innerHTML = renderEmpty();
+          } else {
+            var html = "";
+            var lastDay = null;
+            messages.forEach(function (msg) {
+              var dayKey = new Date(msg.createdAt).toDateString();
+              if (dayKey !== lastDay) {
+                html +=
+                  '<div class="date-divider">' +
+                  escapeHtml(formatDivider(msg.createdAt)) +
+                  "</div>";
+                lastDay = dayKey;
+              }
+              html += renderBubble(msg);
+            });
+            chatListEl.innerHTML = html;
+          }
+
+          if (scrollAfter !== false) {
+            requestAnimationFrame(function () {
+              chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+            });
+          }
+        }
+
+        /* =========================================================
+           6. Composer behaviour
+           ========================================================= */
+        function autoGrow() {
+          composerInput.style.height = "auto";
+          composerInput.style.height =
+            Math.min(composerInput.scrollHeight, 100) + "px";
+        }
+
+        function updateSendState() {
+          var has = composerInput.value.trim().length > 0;
+          sendBtn.disabled = !has;
+        }
+
+        function sendMessage() {
+          var text = composerInput.value.trim();
+          if (!text) return;
+          if (text.length > 1000) {
+            toast("Message is too long (max 1000 characters)", "error");
+            return;
+          }
+          Store.sendChatMessage(ride.id, passengerId, viewerId, text);
+          composerInput.value = "";
+          composerInput.style.height = "auto";
+          updateSendState();
+          renderMessages(true);
+        }
+
+        composerInput.addEventListener("input", function () {
+          autoGrow();
+          updateSendState();
+        });
+
+        composerInput.addEventListener("keydown", function (e) {
+          if (e.key === "Enter" && !e.shiftKey) {
+            e.preventDefault();
+            if (!sendBtn.disabled) sendMessage();
+          }
+        });
+
+        sendBtn.addEventListener("click", sendMessage);
+
+        /* =========================================================
+           7. Rejected-request lock
+           ========================================================= */
+        if (isRejected) {
+          composerInput.disabled = true;
+          composerInput.placeholder = "Chat closed — request was declined";
+          sendBtn.disabled = true;
+          chatListEl.insertAdjacentHTML(
+            "afterbegin",
+            '<div class="status-banner danger" style="margin:0 var(--space-md) var(--space-sm)">' +
+              '<span class="banner-icon">✕</span>' +
+              '<div class="banner-body">' +
+              '<div class="banner-title">This request was declined</div>' +
+              '<div class="banner-desc">You can still see the conversation history, but new messages are disabled.</div>' +
+              "</div></div>",
+          );
+        }
+
+        /* =========================================================
+           8. Share contact flow
+           ========================================================= */
+        function shareContact() {
+          var masked = maskPhone(getPhone(viewerId));
+          Confirm.show({
+            title: "Share your contact number?",
+            body:
+              "Your number will appear in this chat as " +
+              masked +
+              ". You can keep it private and only share details in chat instead.",
+            confirmLabel: "Share number",
+            cancelLabel: "Keep private",
+            onConfirm: function () {
+              Store.sendChatMessage(
+                ride.id,
+                passengerId,
+                viewerId,
+                PHONE_MARKER + masked,
+              );
+              renderMessages(true);
+              toast("Contact shared", "success");
+            },
+          });
+        }
+
+        /* =========================================================
+           9. ⋯ menu
+           ========================================================= */
+        menuBtn.addEventListener("click", function () {
+          var options = [];
+
+          if (!isRejected) {
+            options.push({
+              icon: "📞",
+              label: "Share contact",
+              description: "Share a masked phone number in chat",
+            });
+          }
+          options.push({
+            icon: "🚗",
+            label: "View ride details",
+            description: "Route, timing, passengers",
+          });
+          options.push({
+            icon: "🔗",
+            label: "Share ride",
+            description: "Copy a shareable link",
+          });
+
+          Sheet.open({
+            title: "Chat options",
+            options: options,
+            onSelect: function (opt) {
+              if (opt.label === "Share contact") {
+                shareContact();
+                return;
+              }
+              if (opt.label === "View ride details") {
+                navigate(
+                  "ride-detail.html?id=" +
+                    encodeURIComponent(ride.id) +
+                    "&scope=" +
+                    encodeURIComponent(ride.scope),
+                );
+                return;
+              }
+              if (opt.label === "Share ride") {
+                toast("Share link copied to clipboard", "success");
+              }
+            },
+          });
+        });
+
+        /* =========================================================
+           10. Back
+           ========================================================= */
+        backBtn.addEventListener("click", function () {
+          goBack(
+            "ride-detail.html?id=" +
+              encodeURIComponent(ride.id) +
+              "&scope=" +
+              encodeURIComponent(ride.scope),
+          );
+        });
+
+        /* =========================================================
+           11. First render
+           ========================================================= */
+        renderMessages(true);
+        updateSendState();
+        autoGrow();
+      });
+    </script>
+  </body>
+</html>

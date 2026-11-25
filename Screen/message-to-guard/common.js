@@ -1147,7 +1147,7 @@ function roleLinks(currentRole, convId) {
   };
   const labels = { resident: "Resident", guard: "Guard", admin: "Admin" };
   const out = [];
-  ["resident", "guard", "admin"].forEach(function (role) {
+  ["resident", "guard"].forEach(function (role) {
     if (role === currentRole) return;
     out.push(
       '<a class="role-switch" href="' +
